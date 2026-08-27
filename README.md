@@ -74,17 +74,6 @@ https://<your-username>.github.io/<repo-name>/
 Use **↺ Start over (new month)** on Step 1 to clear the statement, the loaded
 PDFs, and all matches for a fresh run.
 
-## Publishing to GitHub Pages
-
-1. Create a new **public** repository on GitHub.
-2. **Add file → Upload files** and upload `index.html` (and this `README.md`).
-3. **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
-   branch **main**, folder **/ (root)**, then **Save**.
-4. Wait ~1 minute; the site goes live at the URL shown on that Pages screen.
-
-To update later, upload a new `index.html` over the old one and commit — the site
-refreshes automatically.
-
 ## Privacy
 
 The repository (code) is public, but it contains only the tool. It stores nothing
