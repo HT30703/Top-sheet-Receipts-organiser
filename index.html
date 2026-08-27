@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topsheet &amp; Receipt Organiser</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='14' fill='%231c2321'/%3E%3Crect x='16' y='11' width='32' height='42' rx='5' fill='%23fffdf8'/%3E%3Crect x='16' y='11' width='32' height='10' rx='5' fill='%239a3b2e'/%3E%3Crect x='16' y='16' width='32' height='5' fill='%239a3b2e'/%3E%3Cline x1='22' y1='30' x2='42' y2='30' stroke='%23cfc7b5' stroke-width='3' stroke-linecap='round'/%3E%3Cline x1='22' y1='37' x2='42' y2='37' stroke='%23cfc7b5' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='46' r='13' fill='%232f5d50' stroke='%23fffdf8' stroke-width='3'/%3E%3Cpath d='M39 46 l4 5 l8 -10' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<!-- Local build: runs as a file on your Mac, so it can use PDF libraries.
+     Libraries are loaded with multi-CDN fallback so a blocked CDN doesn't
+     silently break thumbnails. pdf.js reads/renders; pdf-lib merges. -->
+<script>
+window.__libStatus={pdfjs:false,pdflib:false,notes:[]};
+function loadFirst(urls,test,cb){
+  let i=0;
+  (function next(){
+    if(test()){cb(true);return;}
+    if(i>=urls.length){cb(false);return;}
+    const u=urls[i++];
+    const s=document.createElement('script');
+    s.src=u;
+    s.onload=()=>{ if(test()){window.__libStatus.notes.push('loaded '+u);cb(true);} else next(); };
+    s.onerror=()=>{ window.__libStatus.notes.push('failed '+u); next(); };
+    document.head.appendChild(s);
+  })();
+}
+</script>
+<style>
+  :root{
+    --ink:#1c2321;--paper:#f4f1ea;--card:#fffdf8;--line:#e2ddd0;--line-strong:#d3ccbb;
+    --accent:#9a3b2e;--accent2:#2f5d50;--gold:#b3892f;
+    --ok:#2f5d50;--warn:#b06a1c;--bad:#9a3b2e;--mut:#7d7767;
+    --shadow:0 1px 2px rgba(28,35,33,.05),0 6px 20px rgba(28,35,33,.07);
+    --shadow-lg:0 2px 4px rgba(28,35,33,.06),0 16px 40px rgba(28,35,33,.13);
+    --radius:12px;--tr:.16s ease;
+    --mono:"SF Mono",ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:56px}
+  header.masthead{background:linear-gradient(180deg,#242c29,#1c2321);color:var(--paper);padding:24px 28px 20px;border-bottom:3px solid var(--gold)}
+  .masthead .brandrow{display:flex;align-items:center;gap:18px}
+  .masthead .brandlogo{flex:none;width:66px;height:66px;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,.35))}
+  .masthead .brandlogo svg{width:100%;height:100%;display:block}
+  .masthead .brandtext{min-width:0}
+  .masthead .byline{margin:6px 0 0;font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.4px}
+  @media (max-width:600px){.masthead .brandlogo{width:52px;height:52px}}
+  .masthead h1{font-family:var(--serif);font-size:27px;margin:0;font-weight:600;letter-spacing:.2px}
+  .masthead p{margin:5px 0 0;font-size:13px;color:#c9c3b4;max-width:75ch}
+  .steps{display:flex;margin:20px 28px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+  .step{flex:1;padding:13px 16px;cursor:pointer;border-right:1px solid var(--line);display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--mut);transition:background var(--tr),color var(--tr)}
+  .step:last-child{border-right:none}
+  .step .num{width:22px;height:22px;border-radius:50%;background:var(--line);color:var(--ink);display:grid;place-items:center;font-family:var(--mono);font-size:12px;flex:none;transition:background var(--tr),color var(--tr)}
+  .step.active{background:var(--accent);color:#fff}
+  .step.active .num{background:#fff;color:var(--accent)}
+  .step.done .num{background:var(--ok);color:#fff}
+  main{padding:24px 28px 40px}
+  .panel{display:none}.panel.active{display:block}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media (max-width:900px){.row{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .card h2{font-family:var(--serif);font-size:18px;margin:0 0 4px}
+  .card .hint{font-size:12.5px;color:var(--mut);margin:0 0 12px}
+  textarea{width:100%;min-height:170px;font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical;background:#fbf9f3;color:var(--ink)}
+  textarea:focus,input[type=text]:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(47,93,80,.12)}
+  input[type=text]{font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fbf9f3;color:var(--ink)}
+  label.fld{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .btn{font-family:var(--sans);font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:9px;transition:filter var(--tr),box-shadow var(--tr),background var(--tr)}
+  .btn:hover{filter:brightness(1.08);box-shadow:var(--shadow)}
+  .btn:active{filter:brightness(.96)}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+  .btn.ghost:hover{background:#f0ece2;filter:none}
+  .btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.go{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .filedrop{border:2px dashed var(--line-strong);border-radius:12px;padding:24px;text-align:center;color:var(--mut);font-size:13px;cursor:pointer;background:#fbf9f3;transition:border-color var(--tr),background var(--tr)}
+  .filedrop:hover{border-color:var(--accent2);background:#f3f7f4}
+  .filedrop.drag{border-color:var(--accent);background:#f6efe9;color:var(--ink)}
+  .filedrop strong{color:var(--ink)}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
+  .tag.ok{color:var(--ok);border-color:var(--ok)}
+  .tag.warn{color:var(--warn);border-color:var(--warn)}
+  .tag.bad{color:var(--bad);border-color:var(--bad)}
+  table.seq{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+  table.seq th,table.seq td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.seq th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);font-weight:700}
+  table.seq td.num,table.seq td.amt{font-family:var(--mono)}
+  table.seq td.amt{text-align:right;white-space:nowrap}
+  table.seq tr.unmatched{background:#fdf5ef}
+  .msg{font-size:12.5px;margin:10px 0;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:#fbf9f3}
+  .msg.err{border-color:var(--bad);color:var(--bad);background:#fbf1ef}
+  .msg.ok{border-color:var(--ok);color:var(--ok);background:#eef4f1}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:900px){.split{grid-template-columns:1fr}}
+  /* Receipts panel stays pinned in view while the topsheets scroll, so you can
+     line up a receipt with a topsheet anywhere in the list. align-self:start
+     stops it stretching to the (tall) row height, giving sticky room to work. */
+  .rightcol{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;max-height:calc(100vh - 24px)}
+  @media (max-width:900px){.rightcol{position:static;max-height:none}}
+  .rightcol .stack{overflow:auto;flex:1 1 auto;min-height:0;padding-right:4px}
+  .stack{display:flex;flex-direction:column;gap:8px}
+  .doc{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px;background:#fff;cursor:grab;box-shadow:var(--shadow);transition:box-shadow var(--tr),border-color var(--tr)}
+  .doc:hover{box-shadow:var(--shadow-lg);border-color:var(--line-strong)}
+  .doc.dragging{opacity:.5}
+  /* Stop thumbnails from starting their OWN native image-drag, which hijacks the
+     card drag and breaks drop matching under file://. */
+  .doc img,.pair img{-webkit-user-drag:none;user-drag:none;-webkit-user-select:none;user-select:none}
+  .doc img,.doc canvas{width:58px;height:78px;flex:none;border:1px solid var(--line);border-radius:4px;background:#faf8f2;object-fit:cover;object-position:top;cursor:pointer}
+  .doc .meta{font-size:12px;min-width:0}
+  .doc .meta .p{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+  .doc .meta .s{color:var(--mut);font-family:var(--mono);font-size:11px}
+  .doc{align-items:flex-start}
+  .poolactions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .poolbtn{font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 12px;border-radius:7px;line-height:1.2}
+  .poolbtn:hover{background:#f6f2e9}
+  .poolbtn.viewbtn{border-color:var(--accent2);color:var(--accent2)}
+  .poolbtn.matchbtn{border-color:var(--accent2);background:var(--accent2);color:#fff}
+  .poolbtn.removebtn{border-color:var(--bad);color:var(--bad)}
+  .pair .receipt{flex-wrap:wrap}
+  .pairlist{display:flex;flex-direction:column;gap:10px}
+  .pair{position:relative;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;box-shadow:inset 4px 0 0 #c9c2b2, var(--shadow);transition:box-shadow var(--tr)}
+  .pair.st-ok{box-shadow:inset 4px 0 0 #2f5d50, var(--shadow)}
+  .pair.st-auto{box-shadow:inset 4px 0 0 #6a9e8c, var(--shadow)}
+  .pair.st-manual{box-shadow:inset 4px 0 0 #3b6ea5, var(--shadow)}
+  .pair.st-low{box-shadow:inset 4px 0 0 #e0a72e, var(--shadow);border-color:#e6d59a}
+  .pair.st-need{box-shadow:inset 4px 0 0 #c9c2b2, var(--shadow)}
+  .pair.dropover{outline:3px solid var(--accent2);outline-offset:-1px;box-shadow:0 0 0 4px rgba(47,93,80,.15)}
+  /* Insertion line drawn as a pseudo-element ABOVE the header/slot content so it's
+     always visible (an inset box-shadow was hidden behind the opaque header). */
+  .pair.drop-above::after,.pair.drop-below::after{content:'';position:absolute;left:0;right:0;height:4px;background:var(--accent2);z-index:6;box-shadow:0 0 7px rgba(47,93,80,.6)}
+  .pair.drop-above::after{top:0}
+  .pair.drop-below::after{bottom:0}
+  .pair.flash{animation:flashpair 1.4s ease-out}
+  @keyframes flashpair{0%{box-shadow:0 0 0 4px rgba(233,185,73,.9)}100%{box-shadow:0 0 0 4px rgba(233,185,73,0)}}
+  .pair .head{display:flex;gap:10px;align-items:center;padding:8px 10px;background:#f6f2e9;border-bottom:1px solid var(--line)}
+  .pair .head img{width:88px;height:120px;border:1px solid var(--line);border-radius:3px;object-fit:contain;object-position:top;background:#fff;cursor:pointer}
+  .pair .head .idx{font-family:var(--mono);font-size:12px;background:var(--ink);color:#fff;border-radius:6px;padding:2px 7px}
+  .pair .head .ttl{font-size:13px;font-weight:600}
+  .pair .head .amt{margin-left:auto;font-family:var(--mono);font-size:12px}
+  .pair .head.thead{align-items:flex-start;gap:12px}
+  .theadinfo{flex:1;min-width:0}
+  .theadtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .tpayee{font-size:15px;font-weight:700;color:var(--ink)}
+  .tamt{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent2);white-space:nowrap}
+  .tmeta{font-size:12px;color:var(--mut);margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+  .thead .tview{align-self:center;flex:none}
+  .nothumb{width:58px;height:78px;flex:none;border:1px dashed var(--line);border-radius:4px;display:grid;place-items:center;font-size:10px;color:var(--mut);background:#faf8f2}
+  .pair .slot{min-height:56px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+  .pair .slot.over{background:#eef4f1;outline:2px dashed var(--accent2);outline-offset:-4px}
+  .pair .slot.pickable{background:#eef4f1;cursor:pointer;outline:2px dashed var(--accent2);outline-offset:-4px}
+  .pair .slot.pickable:hover{background:#dfeee8}
+  .pair .receipt{display:flex;gap:8px;align-items:center;font-size:12px;flex-wrap:wrap;background:#f2f7f4;border:1px solid #cfe3da;border-radius:8px;padding:6px 8px}
+  .pair .receipt img{width:40px;height:52px;border:1px solid var(--line);border-radius:3px;object-fit:cover;object-position:top;cursor:pointer}
+  .pair .receipt .rclabel{flex:1;min-width:120px;font-family:var(--mono);font-size:12px;color:#1c2321}
+  .pair .receipt .removebtn{flex-basis:100%;width:100%;margin:8px 0 0;background:#9a3b2e;color:#fff;border-color:#9a3b2e;text-align:center;font-size:13px;padding:8px 12px}
+  .pair .receipt .removebtn:hover{background:#7f2f24}
+  /* Confidence badge in the topsheet header */
+  .cbadge{font-family:var(--sans);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;white-space:nowrap}
+  .cbadge.ok{background:#e6f0ea;color:#2f5d50}
+  .cbadge.conf{background:#2f5d50;color:#fff}
+  .cbadge.auto{background:#e6f0ea;color:#2f5d50;border:1px solid #bcd6cb}
+  .cbadge.manual{background:#e7eff7;color:#2c5a8f;border:1px solid #c4d8ee}
+  .cbadge.low{background:#fbeecb;color:#8a6400}
+  .cbadge.need{background:#efece3;color:#8a8372}
+  .cbadge.park{background:#f3e2c8;color:#8a5a1c;border:1px solid #e2c79a}
+  /* Print-order controls in each topsheet header */
+  .ordctl{display:flex;flex-direction:column;align-items:center;flex:none;gap:1px}
+  .ordgrip{cursor:grab;color:#c0baaa;font-size:16px;flex:none;user-select:none;line-height:1;padding:0 1px}
+  .ordgrip:hover{color:#7d7767}
+  .ordgrip:active{cursor:grabbing}
+  .pair.dragging{opacity:.45}
+  .ordbtn{border:1px solid var(--line-strong);background:#fff;color:var(--mut);width:24px;height:16px;line-height:1;font-size:9px;border-radius:5px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+  .ordbtn:hover{background:#f0ece2;color:var(--ink)}
+  .ordnum{border:none;background:#1c2321;color:#fff;font-family:var(--mono);font-size:13px;border-radius:6px;padding:2px 8px;cursor:pointer;min-width:30px}
+  .ordnum:hover{background:#2f5d50}
+  .chip.confirm{border-color:#2f5d50;color:#2f5d50;font-weight:700}
+  .chip.confirm:hover{background:#2f5d50;color:#fff}
+  .chip.unconfirm{border-color:#a99a6a;color:#7a6a3a}
+  .chip.unconfirm:hover{background:#efe6cf}
+  .tamt{cursor:pointer;color:#2f5d50;font-family:var(--mono);border-bottom:1px dashed transparent;padding-bottom:1px}
+  .tamt:hover{border-bottom-color:#9bb7ad}
+  .tamt.tamt-empty{color:#b0742e;font-weight:600;font-size:13px;font-family:var(--sans);border-bottom-color:#e0b98a}
+  /* Matched-receipt chip with Verify / Receipt / Unmatch buttons */
+  .pair .matched{display:flex;align-items:center;flex-wrap:wrap;gap:10px;background:#eef5f1;border:1px solid #cfe3da;border-radius:9px;padding:8px 10px}
+  .pair.st-low .matched{background:#fbf3dd;border-color:#e6d59a}
+  .pair .matched .mthumb{width:38px;height:50px;border:1px solid var(--line);border-radius:4px;object-fit:cover;object-position:top;flex:none;background:#fff;cursor:pointer}
+  .pair .matched .minfo{flex:1;min-width:100px}
+  .pair .matched .mtitle{font-weight:700;font-size:13px;color:#1c2321}
+  .pair .matched .msub{font-family:var(--mono);font-size:11px;color:#6b7d76;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Buttons always take their OWN full-width line so a narrow column + overflow
+     can never clip them. */
+  .pair .matched .mactions{display:flex;gap:6px;flex-basis:100%;flex-wrap:wrap;justify-content:flex-start;margin-top:2px}
+  .chip{font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line-strong);background:#fff;color:var(--ink);padding:6px 12px;border-radius:999px;line-height:1.15;white-space:nowrap;transition:background var(--tr),color var(--tr),border-color var(--tr)}
+  .chip:hover{background:#f6f2e9}
+  .chip.verify,.chip.view{border-color:var(--accent2);color:var(--accent2)}
+  .chip.verify:hover,.chip.view:hover{background:var(--accent2);color:#fff}
+  .chip.unmatch{border-color:#9a3b2e;color:#9a3b2e}
+  .chip.unmatch:hover{background:#9a3b2e;color:#fff}
+  /* Progress bar + review toggle */
+  #progressBar{margin:4px 0 12px}
+  .prog{height:8px;background:#efece3;border-radius:999px;overflow:hidden}
+  .progfill{height:100%;background:linear-gradient(90deg,#2f5d50,#3f7a68);border-radius:999px;transition:width .3s}
+  .progtxt{font-size:13px;color:#4a4636;margin-top:6px}
+  .revtoggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#4a4636;cursor:pointer;margin-left:auto}
+  /* Full-screen preview: side-by-side + seamless multi-page scroll */
+  #previewBody{display:flex;flex-wrap:nowrap;justify-content:center;align-items:flex-start;gap:16px;width:100%;box-sizing:border-box;padding:14px}
+  .pvcol{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 auto;align-items:center}
+  #previewBody.pvpair .pvcol{flex:1 1 0;max-width:46vw}
+  .pvcol.pvtop{align-self:flex-start;position:sticky;top:52px}
+  .pvlabel{font-size:11px;font-family:var(--mono);color:#7d7767;letter-spacing:.04em;text-align:center}
+  .pvscroll{max-height:80vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;align-items:center;padding:2px 4px 2px 0;width:100%}
+  .pvpage{position:relative;display:flex;flex-direction:column;gap:3px;align-items:center;width:100%}
+  .pvpage .pvnum{font-size:10px;font-family:var(--mono);color:#a39d8e}
+  /* Whole-page 'fit' by default; 'zoom' fills the panel width for reading detail */
+  #previewBody canvas{border:1px solid #d8d2c4;border-radius:4px;display:block;background:#fff}
+  #previewBody.fit canvas{max-width:100%;max-height:74vh;width:auto;height:auto}
+  #previewBody.zoom canvas{width:100%;max-width:none;height:auto}
+  .pair .empty{color:var(--warn);font-size:12px;font-style:italic}
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+  .kpi{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:#fff;min-width:96px}
+  .kpi .v{font-family:var(--mono);font-size:18px}
+  .kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  code.k{font-family:var(--mono);font-size:11.5px;background:#efece3;padding:1px 5px;border-radius:4px}
+  details.help{margin-top:14px;font-size:12.5px;color:var(--mut)}
+  details.help summary{cursor:pointer;color:var(--ink);font-weight:600}
+  details.guide{margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  details.guide>summary{cursor:pointer;list-style:none;padding:14px 18px;font-family:var(--serif);font-size:16px;font-weight:600;background:#f6f2e9}
+  details.guide>summary::-webkit-details-marker{display:none}
+  .guidebody{padding:6px 20px 18px;font-size:13px}
+  .guidebody h3{font-family:var(--serif);font-size:14px;margin:16px 0 4px;color:var(--accent)}
+  .guidebody ol,.guidebody ul{margin:6px 0;padding-left:20px}
+  .legend{font-size:12px;color:var(--mut);margin:6px 0 0}
+  .foot{font-size:11.5px;color:var(--mut);margin-top:22px;border-top:1px solid var(--line);padding-top:12px}
+  #libWarn{display:none;margin:14px 28px 0}
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="brandrow">
+    <span class="brandlogo" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Topsheet and Receipt Organiser logo">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a332f"/><stop offset="1" stop-color="#1c2321"/></linearGradient></defs>
+        <rect x="12" y="12" width="488" height="488" rx="104" fill="url(#lg)"/>
+        <rect x="12" y="12" width="488" height="488" rx="104" fill="none" stroke="#b3892f" stroke-width="7" opacity=".9"/>
+        <g transform="rotate(-9 256 262)">
+          <rect x="150" y="150" width="150" height="212" rx="12" fill="#efe7d6" stroke="#d3ccbb" stroke-width="4"/>
+          <line x1="172" y1="198" x2="278" y2="198" stroke="#bcb39f" stroke-width="8" stroke-linecap="round"/>
+          <line x1="172" y1="228" x2="278" y2="228" stroke="#cbc3b0" stroke-width="8" stroke-linecap="round"/>
+          <line x1="172" y1="258" x2="242" y2="258" stroke="#cbc3b0" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <g transform="rotate(6 256 262)">
+          <rect x="208" y="146" width="172" height="232" rx="14" fill="#fffdf8" stroke="#d3ccbb" stroke-width="4"/>
+          <path d="M222 146 h144 a14 14 0 0 1 14 14 v26 h-172 v-26 a14 14 0 0 1 14 -14 z" fill="#9a3b2e"/>
+          <line x1="230" y1="222" x2="358" y2="222" stroke="#9a3b2e" stroke-width="7" stroke-linecap="round" opacity=".8"/>
+          <line x1="230" y1="250" x2="358" y2="250" stroke="#d0c8b6" stroke-width="8" stroke-linecap="round"/>
+          <line x1="230" y1="278" x2="358" y2="278" stroke="#d0c8b6" stroke-width="8" stroke-linecap="round"/>
+          <line x1="230" y1="306" x2="320" y2="306" stroke="#d0c8b6" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <circle cx="358" cy="360" r="60" fill="#2f5d50" stroke="#fffdf8" stroke-width="9"/>
+        <path d="M330 360 l18 20 l34 -42" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <div class="brandtext">
+      <h1>Topsheet &amp; Receipt Organiser</h1>
+      <p>Reads any PDF, shows real page thumbnails, auto-matches receipts to topsheets by reading their text, and exports one print-ready PDF plus a Sage import CSV. Everything runs in your browser; nothing is uploaded.</p>
+      <p class="byline">Created by Hyman</p>
+    </div>
+  </div>
+</header>
+<div id="libWarn" class="msg err"></div>
+
+<div class="steps">
+  <div class="step active" data-step="1"><span class="num">1</span> Build sequence</div>
+  <div class="step" data-step="2"><span class="num">2</span> Load PDFs</div>
+  <div class="step" data-step="3"><span class="num">3</span> Match &amp; order</div>
+  <div class="step" data-step="4"><span class="num">4</span> Export</div>
+</div>
+
+<main>
+  <details class="guide">
+    <summary>How to use this tool</summary>
+    <div class="guidebody">
+      <h3>Step 1 · Build sequence</h3>
+      <ol>
+        <li>Paste your credit card statement (whole block, headers and all) on the left — the master order.</li>
+        <li>Paste your AutoEntry export (with header row) on the right. Columns used: <code class="k">SupplierDescription</code>, <code class="k">BaseCurrencyTotal</code>, <code class="k">Description</code>, <code class="k">AccountCode</code>, <code class="k">AccountCodeDescription</code>, <code class="k">Reference</code>, <code class="k">InvoiceDate</code>.</li>
+        <li>Click <b>Order export to statement</b>. Refunds are excluded automatically; amounts are auto-corrected against AutoEntry.</li>
+      </ol>
+      <h3>Step 2 · Load PDFs</h3>
+      <p>Drop your topsheets PDF, then drop all your individual receipt PDFs at once. Real page thumbnails render for both.</p>
+      <h3>Step 3 · Match &amp; order</h3>
+      <p>Click <b>Auto-match by text</b> — it reads payee/amount off each receipt and pairs it to the right topsheet. Fix any by dragging a receipt thumbnail onto a topsheet. Low-confidence matches are outlined amber.</p>
+      <h3>Step 4 · Export</h3>
+      <p>Download the merged PDF (topsheet + its receipts, in order) and the Sage import CSV. Both share one order.</p>
+    </div>
+  </details>
+
+  <!-- STEP 1 -->
+  <section class="panel active" data-panel="1">
+    <div class="row">
+      <div class="card">
+        <h2>Credit card statement</h2>
+        <p class="hint">Paste straight from your NatWest onecard statement — headers, two-date columns and all. The tool skips headers/footers/fees, uses the Tran date, and excludes refunds. This is the master order.</p>
+        <label class="fld">Statement (paste as-is)</label>
+        <textarea id="stmtIn" placeholder="Post Tran Bank Your Ref Transaction Description Amount
+01 JUN 30 MAY 25058394 SAINSBURYS.CO.UK 0800 328 1700 186.81
+02 JUN 01 JUN 50609719 SALT&PEPPER EVENTS LONDON LND 326.40"></textarea>
+      </div>
+      <div class="card">
+        <h2>AutoEntry / Sage export</h2>
+        <p class="hint">Paste your AutoEntry export (CSV or tab-separated, keep the header row). Columns used for the topsheet + Sage import:</p>
+        <table class="seq" style="margin:0 0 10px">
+          <thead><tr><th>Used for</th><th>Column</th></tr></thead>
+          <tbody>
+            <tr><td>Payee</td><td><code class="k">SupplierDescription</code></td></tr>
+            <tr><td>Amount</td><td><code class="k">BaseCurrencyTotal</code></td></tr>
+            <tr><td>Description</td><td><code class="k">Description</code></td></tr>
+            <tr><td>Department</td><td><code class="k">AccountCodeDescription</code></td></tr>
+            <tr><td>Nominal code (Sage)</td><td><code class="k">AccountCode</code></td></tr>
+            <tr><td>Payment requested by</td><td><code class="k">Reference</code></td></tr>
+            <tr><td>Date</td><td><code class="k">InvoiceDate</code></td></tr>
+          </tbody>
+        </table>
+        <label class="fld">Export rows (with header)</label>
+        <textarea id="aeIn" placeholder="SupplierDescription,BaseCurrencyTotal,Description,AccountCode,AccountCodeDescription,Reference,InvoiceDate"></textarea>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="btn go" id="buildSeq">Order export to statement</button>
+      <span id="seqMsg" class="tag"></span>
+      <button class="btn ghost" id="restartAll" style="margin-left:auto">↺ Start over (new month)</button>
+    </div>
+    <div id="seqResult"></div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <div class="row">
+      <div class="card">
+        <h2>Topsheets PDF</h2>
+        <p class="hint">The mail-merged topsheet document, one topsheet per page.</p>
+        <div class="filedrop" id="dropTop"><strong>Drop topsheets PDF</strong><br>or click to choose</div>
+        <div id="topInfo" class="legend"></div>
+      </div>
+      <div class="card">
+        <h2>Receipts (individual files)</h2>
+        <p class="hint">Drop <b>all your individual receipt PDFs at once</b> (select many in the file picker, or drag a multi-selection). Each file = one receipt, so multi-page receipts are handled automatically — no grouping guesswork.</p>
+        <div class="filedrop" id="dropRec"><strong>Drop receipt PDFs (select multiple)</strong><br>or click to choose several</div>
+        <div id="recInfo" class="legend"></div>
+      </div>
+    </div>
+    <div id="pdfMsg"></div>
+    <div class="btnrow"><button class="btn accent" id="toMatch" disabled>Continue to matching</button></div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <div id="progressBar"></div>
+    <div class="msg ok" style="margin:0 0 8px"><b>Green</b> = confident (receipt total matches, and the payee name or a unique amount confirms it). <b>Amber</b> = matched but worth a glance. Uncertain ones are left <b>unmatched</b> rather than guessed. Click a matched card to verify side-by-side; <b>✓ Confirm</b> locks it in. Use <b>↕ Sort to statement order</b> to arrange the print pack, then reorder any card by <b>dragging its ⠿ handle</b> (or the ▲▼ / number). Topsheets not found in the statement are tagged <b>↕ place me</b>.</div>
+    <div class="btnrow" style="margin-top:0;align-items:center">
+      <button class="btn go" id="autoMatch">Re-run auto-match</button>
+      <button class="btn ghost" id="autoMatchPos">Match 1-to-1 by order</button>
+      <button class="btn ghost" id="sortStmt">↕ Sort to statement order</button>
+      <button class="btn ghost" id="clearMatch">Clear all</button>
+      <label class="revtoggle"><input type="checkbox" id="reviewOnly"> Show only items to review</label>
+    </div>
+    <div class="split" style="margin-top:14px">
+      <div>
+        <h2 style="font-family:var(--serif);font-size:16px;margin:0 0 8px">Sequence &amp; matched receipts</h2>
+        <div class="pairlist" id="pairList"></div>
+      </div>
+      <div class="rightcol">
+        <h2 style="font-family:var(--serif);font-size:16px;margin:0 0 8px">Unassigned receipt pages</h2>
+        <div class="stack" id="recPool"></div>
+      </div>
+    </div>
+    <div class="btnrow"><button class="btn accent" id="toExport">Continue to export</button></div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="panel" data-panel="4">
+    <div class="card">
+      <h2>Export print-ready PDF</h2>
+      <p class="hint">One PDF: each topsheet followed by its matched receipt page(s), in sequence order. Original pages copied losslessly.</p>
+      <div class="kpis" id="expKpis"></div>
+      <div class="btnrow"><button class="btn go" id="doExport">Build &amp; download merged PDF</button><span id="expMsg"></span></div>
+      <div id="expWarn"></div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <h2>Export Sage import CSV</h2>
+      <p class="hint">Your AutoEntry data re-sequenced to the statement in the Sage journal layout: <code class="k">VP,1107,&lt;nominal&gt;,0,&lt;date&gt;,&lt;period&gt;,&lt;Payee - Description&gt;,&lt;amount&gt;,T9,0,1,,MANAGER</code>.</p>
+      <label class="fld">Credit-card period label</label>
+      <input id="ccPeriod" type="text" value="CC Jul 26" style="width:180px">
+      <div class="btnrow">
+        <button class="btn go" id="doExportSage">Download — all transactions</button>
+        <button class="btn ghost" id="doExportSageRecog">Download — recognised only</button>
+        <span id="sageMsg"></span>
+      </div>
+      <p class="hint" style="margin-top:8px"><b>All transactions</b> = every line on the statement. <b>Recognised only</b> = every line the sequence builder matched to your AutoEntry export, i.e. all rows except the red/unmatched ones.</p>
+      <div id="sageWarn"></div>
+    </div>
+  </section>
+
+  <div class="foot">Topsheet &amp; Receipt Organiser · Created by Hyman. PDF reading/rendering via pdf.js; lossless merge via pdf-lib. Everything runs in your browser — nothing is uploaded.</div>
+</main>
+<div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(28,35,33,.72);z-index:99;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)closePreview()">
+  <div style="background:#fff;border-radius:12px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative">
+    <div style="position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f6f2e9;border-bottom:1px solid var(--line);z-index:2">
+      <strong id="previewTitle" style="font-family:var(--serif);font-size:15px"></strong>
+      <button class="btn accent" id="confirmBtn" style="margin-left:auto;padding:4px 12px;display:none">✓ Confirm match</button>
+      <button class="btn ghost" id="zoomBtn" style="padding:4px 12px">Zoom in</button>
+      <button class="btn" style="padding:4px 12px" onclick="closePreview()">Close</button>
+    </div>
+    <div id="previewBody" class="fit"></div>
+  </div>
+</div>
+
+<script>
+/* Load PDF libraries with multi-CDN fallback, then wire the worker.
+   A blocked or offline CDN shows a loud banner instead of silent blank UI. */
+const PDFJS_MAIN=[
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+  'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js',
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js'
+];
+const PDFJS_WORKER=[
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+  'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js',
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+];
+const PDFLIB_MAIN=[
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
+  'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
+  'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js'
+];
+function showLibWarn(html){const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML=html;}}
+window.addEventListener('load',()=>{
+  loadFirst(PDFJS_MAIN,()=>!!window.pdfjsLib,okjs=>{
+    if(okjs){
+      // Under file:// the separate worker script cannot start, which makes
+      // rendering silently produce nothing. Run pdf.js WITHOUT a worker
+      // (main-thread) so thumbnails render from a local file.
+      try{ pdfjsLib.GlobalWorkerOptions.workerSrc=''; }catch(e){}
+      try{ pdfjsLib.disableWorker=true; }catch(e){}
+      window.__libStatus.pdfjs=true;
+    }
+    loadFirst(PDFLIB_MAIN,()=>!!window.PDFLib,oklib=>{
+      window.__libStatus.pdflib=!!oklib;
+      if(!okjs||!oklib){
+        showLibWarn('The PDF libraries could not load from any source ('+ (okjs?'pdf-lib':'pdf.js')+' failed). Your network may block CDNs, or you are offline. Options: (1) connect to a network that allows cdnjs / unpkg and reload, or (2) tell me and I will send a version with the libraries embedded directly in the file so it needs no internet at all.');
+      }
+    });
+  });
+});
+
+const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchConf:{},matchSource:{},order:null,unplaced:new Set(),reviewOnly:false,pickedRp:null,dragRp:null,dragTopPos:null};
+/* On-screen debug line for the match screen (drag/click events show here). */
+/* dbg() is a no-op in the shipped build (diagnostics removed). Kept as a stub so
+   the scattered dbg(...) calls remain harmless. */
+function dbg(){}
+/* Surface any JS error on screen (no console needed) + a build stamp. */
+const BUILD='build 2026-08-22y (logo + favicon; Created by Hyman; web-ready)';
+window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
+window.addEventListener('DOMContentLoaded',()=>{
+  const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
+});
+
+/* ---- step nav ---- */
+const steps=[...document.querySelectorAll('.step')],panels=[...document.querySelectorAll('.panel')];
+function goStep(n){steps.forEach(s=>{const k=+s.dataset.step;s.classList.toggle('active',k===n);s.classList.toggle('done',k<n);});panels.forEach(p=>p.classList.toggle('active',+p.dataset.panel===n));window.scrollTo(0,0);}
+steps.forEach(s=>s.addEventListener('click',()=>goStep(+s.dataset.step)));
+
+/* ---- parsing helpers (shared with sandbox build) ---- */
+const MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function parseAmount(t){const m=(t||'').match(/(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|-?\d+\.\d{1,2}|-?\d+)(-?)\s*$/);if(!m)return null;let v=parseFloat(m[1].replace(/,/g,''));if(m[2]==='-'||/^-/.test(m[1]))v=-Math.abs(v);return isNaN(v)?null:v;}
+function parseDate(t){let m=(t||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);if(m)return{d:+m[1],mo:+m[2],y:+(m[3].length===2?'20'+m[3]:m[3])};m=(t||'').match(/(\d{1,2})\s+([A-Za-z]{3})/);if(m){const mo=MONTHS[m[2].toLowerCase()];if(mo)return{d:+m[1],mo,y:2026};}return null;}
+function dateKey(dt){return dt?dt.y*10000+dt.mo*100+dt.d:0;}
+function fmtDate(dt){return dt?String(dt.d).padStart(2,'0')+'/'+String(dt.mo).padStart(2,'0')+'/'+dt.y:'';}
+function fmtAmt(a){return (a<0?'-':'')+'£'+Math.abs(a).toFixed(2);}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function normPayee(t){return (t||'').toLowerCase().replace(/[^a-z0-9& ]/g,' ').replace(/\b(ltd|limited|plc|uk|co|com|www|the|inc|gmbh|sarl)\b/g,' ').replace(/\s+/g,' ').trim();}
+function payeeScore(a,b){a=normPayee(a);b=normPayee(b);if(!a||!b)return 0;if(a===b)return 1;const aw=new Set(a.split(' ')),bw=b.split(' ');let hit=0;bw.forEach(w=>{if(w.length>2&&aw.has(w))hit++;});let s=hit/Math.max(aw.size,bw.length,1);if(a.startsWith(b.slice(0,5))||b.startsWith(a.slice(0,5)))s=Math.max(s,.5);return s;}
+
+function isNoiseLine(l){const u=l.toUpperCase();if(!l)return true;if(/^POST\b/.test(u))return true;if(/^DATE\s+DATE/.test(u))return true;if(/^ONECARD/.test(u))return true;if(/EUR\s+EXCHANGE\s+RATE/.test(u))return true;if(/INCL\s+NON-?STERLING/.test(u))return true;if(/TOTAL\s+ACTIVITY/.test(u))return true;if(/NEW\s+BALANCE/.test(u))return true;if(/BALANCE\s+(FROM|BROUGHT)/.test(u))return true;if(/DIRECT\s+DEBIT\s+PAYMENT/.test(u))return true;if(/^PAGE\s+\d/.test(u))return true;if(/^\d{4}\s+\d{4}\s+\d{4}\s+\d{4}/.test(l))return true;if(/^COPY$/.test(u))return true;return false;}
+
+/* Whitelist parser: a line is a transaction ONLY if it starts with a date
+   (DD MON… or DD/MM/YYYY) and ends with a money amount. Everything else —
+   headers, addresses, summaries, marketing — is ignored. Far more reliable
+   than trying to blacklist every kind of junk. */
+function startsWithDate(l){return /^\d{1,2}\s+[A-Za-z]{3}\b/.test(l)||/^\d{1,2}\/\d{1,2}\/\d{2,4}\b/.test(l);}
+function endsWithAmount(l){return /(-?\d{1,3}(?:,\d{3})*\.\d{1,2})(-?)\s*$/.test(l);}
+function parseStatementDiag(text){
+  const raw=text.split(/\r?\n/),rows=[],diag=[];
+  const amountOnly=l=>/^\s*(-?\d{1,3}(?:,\d{3})*\.\d{1,2})(-?)\s*$/.test((l||'').trim());
+  for(let i=0;i<raw.length;i++){
+    let l=raw[i].replace(/\s+/g,' ').trim();
+    if(!l)continue;
+    // MUST start with a date to be considered a transaction.
+    if(!startsWithDate(l)){diag.push({raw:l,status:'skip',reason:'not a transaction line (no date at start)'});continue;}
+    // amount may have wrapped to the next line — stitch it.
+    if(!endsWithAmount(l)){let j=i+1;while(j<raw.length&&!raw[j].trim())j++;if(j<raw.length&&amountOnly(raw[j])){l=l+' '+raw[j].trim();i=j;}}
+    if(!endsWithAmount(l)){diag.push({raw:l,status:'skip',reason:'date line but no amount'});continue;}
+    let feeVal=null;const fm=l.match(/NON-?STERLING\s+TRANSACTION\s+FEE\s+£?\s*(\d+\.\d{2})/i);if(fm)feeVal=parseFloat(fm[1]);
+    const allAmounts=[...l.matchAll(/(\d{1,3}(?:,\d{3})*\.\d{1,2})(-?)/g)].map(m=>{let v=parseFloat(m[1].replace(/,/g,''));if(m[2]==='-')v=-v;return v;}).filter(v=>feeVal===null||Math.abs(Math.abs(v)-feeVal)>0.005);
+    let amount=allAmounts.length?allAmounts[allAmounts.length-1]:parseAmount(l);
+    if(amount===null){diag.push({raw:l,status:'skip',reason:'no amount found'});continue;}
+    if(amount<0){diag.push({raw:l,status:'skip',reason:'refund / credit (negative) — not needed'});continue;}
+    let rest=l.replace(/(-?\d[\d,]*(?:\.\d{2})?)(-?)\s*$/,'').trim();
+    let date=null;
+    const two=rest.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{1,2})\s+([A-Za-z]{3})\b/),one=rest.match(/^(\d{1,2})\s+([A-Za-z]{3})\b/),sl=rest.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if(two){const mo=MONTHS[two[4].toLowerCase()];date=mo?{d:+two[3],mo,y:2026}:null;rest=rest.replace(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{1,2})\s+([A-Za-z]{3})\s*/,'');}
+    else if(one){const mo=MONTHS[one[2].toLowerCase()];date=mo?{d:+one[1],mo,y:2026}:null;rest=rest.replace(/^(\d{1,2})\s+([A-Za-z]{3})\s*/,'');}
+    else if(sl){date={d:+sl[1],mo:+sl[2],y:+(sl[3].length===2?'20'+sl[3]:sl[3])};rest=rest.replace(/^\d{1,2}\/\d{1,2}\/\d{2,4}\s*/,'');}
+    rest=rest.replace(/^(\d{6,})\s+/,'').trim();
+    rows.push({raw:l,amount,date,desc:rest,allAmounts});
+    diag.push({raw:l,status:'ok',amount,date,desc:rest,noDate:!date,allAmounts});
+  }
+  return {rows,diag};
+}
+
+function parseTable(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);if(!lines.length)return{header:[],rows:[]};
+  const delim=(lines[0].match(/\t/)&&!lines[0].includes(','))?'\t':',';
+  function sp(line){const o=[];let c='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){c+='"';i++;}else q=!q;}else if(ch===delim&&!q){o.push(c);c='';}else c+=ch;}o.push(c);return o.map(s=>s.trim());}
+  return{header:sp(lines[0]),rows:lines.slice(1).map(sp)};
+}
+function guessCols(header){
+  const h=header.map(x=>x.toLowerCase().replace(/[^a-z0-9]/g,''));const ex={};
+  const find=(k,exact,...fb)=>{let i=h.indexOf(exact.toLowerCase().replace(/[^a-z0-9]/g,''));if(i>=0){ex[k]=true;return i;}ex[k]=false;for(const f of fb){const ff=f.toLowerCase().replace(/[^a-z0-9]/g,'');const j=h.findIndex(x=>x.includes(ff));if(j>=0)return j;}return -1;};
+  const col={payee:find('payee','SupplierDescription','ContactCode','supplierdescription','contactname','contact','payee','supplier','name'),amount:find('amount','BaseCurrencyTotal','total','amount','net','gross'),desc:find('desc','Description','memo','narr'),dept:find('dept','AccountCodeDescription','department','nominal'),acct:find('acct','AccountCode','nominalcode','nominal'),reqby:find('reqby','Reference','requestedby','requester','ref'),date:find('date','InvoiceDate','date')};
+  col._exact=ex;return col;
+}
+
+/* ---- Step 1 build ---- */
+document.getElementById('buildSeq').addEventListener('click',()=>{
+  const sd=parseStatementDiag(document.getElementById('stmtIn').value);
+  const stmt=sd.rows;const tbl=parseTable(document.getElementById('aeIn').value);const msg=document.getElementById('seqMsg');
+  if(!stmt.length){msg.className='tag bad';msg.textContent='No statement lines parsed';document.getElementById('seqResult').innerHTML=renderSequence(sd.diag,[],[],[]);return;}
+  if(!tbl.rows.length){msg.className='tag bad';msg.textContent='No export rows parsed';return;}
+  const col=guessCols(tbl.header);
+  if(col.amount<0){msg.className='tag bad';msg.textContent='Missing BaseCurrencyTotal (amount) column';return;}
+  const ae=tbl.rows.map((r,i)=>({i,payee:col.payee>=0?r[col.payee]||'':'',amount:parseAmount((r[col.amount]||'').toString())??parseFloat((r[col.amount]||'').replace(/[^0-9.\-]/g,'')),date:col.date>=0?parseDate(r[col.date]||''):null,desc:col.desc>=0?r[col.desc]||'':'',dept:col.dept>=0?r[col.dept]||'':'',acct:col.acct>=0?(r[col.acct]||'').trim():'',reqby:col.reqby>=0?r[col.reqby]||'':'',used:false})).filter(r=>!isNaN(r.amount));
+  const seq=[],corr=[];
+  stmt.forEach(st=>{
+    const tryA=[st.amount,...(st.allAmounts||[])].filter((v,i,a)=>v!=null&&v>0&&a.indexOf(v)===i);
+    let pick=null,used=st.amount;
+    for(const amt of tryA){const c=ae.filter(r=>!r.used&&Math.abs(r.amount-amt)<0.005);if(!c.length)continue;if(c.length>1)c.sort((a,b)=>{const pa=payeeScore(a.payee,st.desc),pb=payeeScore(b.payee,st.desc);if(pb!==pa)return pb-pa;return Math.abs(dateKey(a.date)-dateKey(st.date))-Math.abs(dateKey(b.date)-dateKey(st.date));});pick=c[0];used=amt;break;}
+    if(pick){pick.used=true;if(Math.abs(used-st.amount)>0.005)corr.push({desc:pick.payee||st.desc,from:st.amount,to:used});seq.push({idx:seq.length+1,payee:pick.payee||st.desc,amount:used,date:pick.date||st.date,desc:pick.desc||st.desc,dept:pick.dept||'',acct:pick.acct||'',reqby:pick.reqby||'',matched:true});}
+    else seq.push({idx:seq.length+1,payee:st.desc,amount:st.amount,date:st.date,desc:st.desc,dept:'',acct:'',reqby:'',matched:false});
+  });
+  const leftover=ae.filter(r=>!r.used);S.sequence=seq;
+  document.getElementById('seqResult').innerHTML=renderSequence(sd.diag,seq,leftover,corr);
+  document.getElementById('seqNext').addEventListener('click',()=>goStep(2));
+  msg.className='tag ok';msg.textContent=`${seq.length} in sequence · ${seq.filter(s=>!s.matched).length} review · ${leftover.length} unused`;
+});
+/* Full reset for a new month: clears the statement/export text, the loaded PDFs
+   and every match, and returns to Step 1. Guarded by a confirm so it can't wipe a
+   month's work by accident. */
+function resetAll(){
+  if(!confirm('Start over for a new month?\n\nThis clears the pasted statement and export, the loaded topsheet & receipt PDFs, and ALL matches (including confirmed ones). This cannot be undone.'))return;
+  S.sequence=[]; S.top=null; S.topBytes=null; S.topPages=[];
+  S.recFiles=[]; S.recPages=[]; S.recGroups=[]; S.recGroupOf={};
+  S.matches={}; S.matchConf={}; S.matchSource={};
+  S.order=null; S.unplaced=new Set(); S.reviewOnly=false;
+  S.pickedRp=null; S.dragRp=null; S.dragTopPos=null; S._autoAdvanced=false;
+  ['stmtIn','aeIn'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['seqResult','topInfo','recInfo','pdfMsg','expKpis','expMsg','expWarn','sageMsg','sageWarn'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  const seqMsg=document.getElementById('seqMsg'); if(seqMsg){seqMsg.className='tag';seqMsg.textContent='';}
+  const ro=document.getElementById('reviewOnly'); if(ro) ro.checked=false;
+  const tm=document.getElementById('toMatch'); if(tm) tm.disabled=true;
+  goStep(1); window.scrollTo(0,0);
+}
+document.getElementById('restartAll').addEventListener('click',resetAll);
+/* One combined Step-1 panel: the ordered sequence table (the master order that
+   drives the PDF + CSV) plus the parse summary, with the corrections notice, the
+   skipped statement lines, and the unused export rows tucked into collapsibles so
+   the section stays clean. */
+function renderSequence(diag,seq,leftover,corr){
+  const ok=diag.filter(d=>d.status==='ok'),sk=diag.filter(d=>d.status==='skip'),nd=ok.filter(d=>d.noDate);
+  const review=seq.filter(s=>!s.matched).length;
+  let h='<div class="card" style="margin-top:16px"><h2>Ordered sequence</h2>';
+  h+=`<p class="hint">${ok.length} statement charge${ok.length===1?'':'s'} read · ${sk.length} skipped as noise${nd.length?` · <span class="tag warn">${nd.length} no date</span>`:''} · <b>${seq.length}</b> in sequence · ${review} to review · ${leftover.length} export row${leftover.length===1?'':'s'} unused. Refunds excluded. Orange rows had no clean AutoEntry match. This order drives the PDF and CSV.</p>`;
+  if(corr.length){
+    h+='<details class="help" open style="margin:0 0 10px"><summary>'+corr.length+' amount'+(corr.length===1?'':'s')+' auto-corrected against AutoEntry — please confirm</summary><table class="seq"><thead><tr><th>Payee</th><th style="text-align:right">Read</th><th style="text-align:right">Used</th></tr></thead><tbody>';
+    corr.forEach(x=>h+=`<tr><td>${esc(x.desc)}</td><td class="amt" style="color:var(--bad)">${fmtAmt(x.from)}</td><td class="amt" style="color:var(--ok)">${fmtAmt(x.to)}</td></tr>`);
+    h+='</tbody></table></details>';
+  }
+  if(seq.length){
+    h+='<table class="seq"><thead><tr><th>#</th><th>Payee</th><th>Description</th><th>Dept</th><th>Req.by</th><th>Date</th><th style="text-align:right">Amount</th></tr></thead><tbody>';
+    seq.forEach(s=>h+=`<tr class="${s.matched?'':'unmatched'}"><td class="num">${s.idx}</td><td>${esc(s.payee)}</td><td>${esc(s.desc||'')}</td><td>${esc(s.dept||'')}</td><td>${esc(s.reqby||'')}</td><td>${fmtDate(s.date)}</td><td class="amt">${fmtAmt(s.amount)}</td></tr>`);
+    h+='</tbody></table>';
+  }
+  if(sk.length){
+    h+='<details class="help" style="margin-top:10px"><summary>Show '+sk.length+' skipped statement line'+(sk.length===1?'':'s')+'</summary><table class="seq"><tbody>';
+    sk.forEach(d=>h+=`<tr><td style="color:var(--mut)">${esc(d.raw).slice(0,80)}</td><td><span class="tag">${esc(d.reason)}</span></td></tr>`);
+    h+='</tbody></table></details>';
+  }
+  if(leftover.length){
+    h+='<details class="help" style="margin-top:10px"><summary>Show '+leftover.length+' unused export row'+(leftover.length===1?'':'s')+'</summary><table class="seq"><tbody>';
+    leftover.forEach(r=>h+=`<tr><td>${esc(r.payee)}</td><td>${esc(r.desc)}</td><td>${fmtDate(r.date)}</td><td class="amt">${fmtAmt(r.amount)}</td></tr>`);
+    h+='</tbody></table></details>';
+  }
+  if(seq.length) h+='<div class="btnrow"><button class="btn accent" id="seqNext">Looks good — load PDFs</button></div>';
+  return h+'</div>';
+}
+
+/* ---- PDF load + render (pdf.js) ---- */
+function wireDrop(el,cb,multi){el.addEventListener('click',()=>{const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf';if(multi)inp.multiple=true;inp.onchange=()=>{if(inp.files&&inp.files.length)cb(multi?[...inp.files]:inp.files[0]);};inp.click();});el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag');});el.addEventListener('dragleave',()=>el.classList.remove('drag'));el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag');const fs=e.dataTransfer.files;if(fs&&fs.length)cb(multi?[...fs]:fs[0]);});}
+function readFile(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(new Uint8Array(r.result));r.onerror=rej;r.readAsArrayBuffer(f);});}
+
+async function loadPdf(bytes){
+  // NOTE: enableXfa can suppress normal getTextContent for form PDFs, returning
+  // empty text -> blank cards. Keep it OFF so text extraction is reliable; we
+  // never rely on the browser painting the topsheet fonts anyway.
+  const doc=await pdfjsLib.getDocument({data:bytes.slice(0),isEvalSupported:false}).promise;
+  const pages=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const page=await doc.getPage(p);
+    let text='';
+    try{const tc=await page.getTextContent();text=tc.items.map(it=>('str'in it)?it.str:'').join(' ').replace(/\s+/g,' ').trim();}catch(e){}
+    pages.push({num:p,text,thumb:null,_page:page});
+  }
+  return {doc,pages,numPages:doc.numPages};
+}
+async function renderThumb(page,scale){
+  // Render at a readable size; guard against zero-size viewports.
+  const base=page.getViewport({scale:1});
+  const target=170; // px wide thumbnail
+  const s=scale||Math.max(0.2, Math.min(0.6, target/(base.width||target)));
+  const vp=page.getViewport({scale:s});
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.floor(vp.width));c.height=Math.max(1,Math.floor(vp.height));
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,c.width,c.height); // white bg so blank-on-transparent is visible
+  // annotationMode 2 = ENABLE_FORMS: paints Word/mail-merge form field text.
+  await page.render({canvasContext:ctx,viewport:vp,annotationMode:2}).promise;
+  return c.toDataURL('image/jpeg',0.72);
+}
+
+/* Parse a topsheet page's extracted text into fields.
+   REAL format (confirmed from live pdf.js) has labels inline with values:
+     ...CREDIT CARD PAYMENT FORM Payee <payee> Amount £<amt> Description <desc>
+        Department <dept> Payment requested by <reqby> Date <date> Approved by ...
+   So we capture each value as the text BETWEEN its label and the next label. */
+function parseTopsheet(text){
+  const out={payee:'',amount:'',desc:'',dept:'',reqby:'',date:''};
+  if(!text) return out;
+  let t=text.replace(/\s+/g,' ').trim();
+  // Drop everything up to and including the form header, if present, so stray
+  // header words can't be mistaken for field values.
+  if(/CREDIT CARD PAYMENT FORM/i.test(t)) t=t.replace(/^[\s\S]*?CREDIT CARD PAYMENT FORM/i,'').trim();
+  // Position-based extraction: find the first occurrence of every known label,
+  // sort by position, then take each field's value as the text running up to the
+  // NEXT label. This works regardless of the order the labels appear in.
+  const labels=[
+    {key:'payee', re:/\bPayee\s*:?/i},
+    {key:'amount',re:/\bAmount\s*:?/i},
+    {key:'desc',  re:/\bDescription\s*:?/i},
+    {key:'dept',  re:/\bDepartment\s*:?/i},
+    {key:'reqby', re:/\bPayment\s+requested\s+by\s*:?/i},
+    {key:'date',  re:/\bDate\s*:?/i},
+    {key:'_end',  re:/\bApproved\s+by\s*:?/i},
+    {key:'_end2', re:/\bSignature\s*:?/i},
+    {key:'_end3', re:/\bNominal(?:\s+code)?\s*:?/i}
+  ];
+  const hits=[];
+  labels.forEach(l=>{const m=t.match(l.re);if(m&&m.index!=null)hits.push({key:l.key,start:m.index,end:m.index+m[0].length});});
+  hits.sort((a,b)=>a.start-b.start);
+  for(let k=0;k<hits.length;k++){
+    const h=hits[k];if(h.key[0]==='_')continue;
+    const next=hits[k+1];
+    out[h.key]=t.slice(h.end, next?next.start:t.length).trim();
+  }
+  // Normalise amount to £x.xx (money format only — never a bare integer).
+  const normAmt=s=>{const m=(s||'').match(/£?\s*(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})/);return m?('£'+m[1].replace(/\s/g,'')):'';};
+  out.amount=normAmt(out.amount);
+  if(!out.amount){const am=t.match(/Amount\s*:?\s*£?\s*(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})/i);if(am)out.amount='£'+am[1].replace(/\s/g,'');}
+  // Normalise date to the first dd/mm/yyyy token.
+  const dm=(out.date||'').match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/)||t.match(/\bDate\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  out.date=dm?dm[1]:'';
+  // Fallback for a label-free layout: payee = text before the first £ amount.
+  if(!out.payee && !out.amount){
+    const m2=t.replace(/\bST\s*MARY'?S\b.*$/i,'').match(/£\s*(\d{1,3}(?:,\d{3})*\.\d{2})/);
+    if(m2){out.amount='£'+m2[1].replace(/\s/g,'');out.payee=t.slice(0,m2.index).replace(/[£\s]+$/,'').trim();}
+  }
+  // Trim any label word that leaked into the tail of a value.
+  out.payee=(out.payee||'').replace(/\s+(Amount|Description|Department|Date)\s*:?\s*$/i,'').trim();
+  return out;
+}
+
+/* Draw a clean, always-legible topsheet card to a canvas -> dataURL.
+   Independent of the PDF's own fonts, so it can't render blank. */
+function renderTopsheetCard(f,w,h){
+  const scale=2; // crisp on retina
+  const c=document.createElement('canvas');c.width=w*scale;c.height=h*scale;
+  const x=c.getContext('2d');x.scale(scale,scale);
+  x.fillStyle='#fffdf8';x.fillRect(0,0,w,h);
+  x.strokeStyle='#d8d2c4';x.lineWidth=1;x.strokeRect(2,2,w-4,h-4);
+  // header band
+  x.fillStyle='#1c2321';x.fillRect(2,2,w-4,20);
+  x.fillStyle='#f4f1ea';x.font='bold 8px -apple-system,Helvetica,Arial';
+  x.fillText('CREDIT CARD PAYMENT FORM',8,15);
+  const rows=[['Payee',f.payee],['Amount',f.amount],['Description',f.desc],['Department',f.dept],['Req. by',f.reqby],['Date',f.date]];
+  let y=34;
+  rows.forEach(([lab,val])=>{
+    x.fillStyle='#9a3b2e';x.font='bold 7px -apple-system,Helvetica,Arial';
+    x.fillText(lab.toUpperCase(),8,y);
+    x.fillStyle='#1c2321';x.font=(lab==='Payee'||lab==='Amount')?'bold 10px -apple-system,Helvetica,Arial':'9px -apple-system,Helvetica,Arial';
+    const text=(val||'—');
+    // wrap long values to 2 lines
+    const maxw=w-16;let line='',yy=y+11;const words=text.split(' ');
+    for(const wd of words){const test=line?line+' '+wd:wd;if(x.measureText(test).width>maxw&&line){x.fillText(line,8,yy);yy+=10;line=wd;if(yy>y+22)break;}else line=test;}
+    x.fillText(line,8,yy);
+    y+=32;
+  });
+  return c.toDataURL('image/jpeg',0.85);
+}
+
+wireDrop(document.getElementById('dropTop'),async f=>{
+  document.getElementById('topInfo').innerHTML='<span class="tag">reading…</span>';
+  try{
+    const bytes=await readFile(f);S.topBytes=bytes;S.top=await loadPdf(bytes);
+    S.topPages=S.top.pages.map((pg,i)=>({i,num:pg.num,text:pg.text,fields:parseTopsheet(pg.text),thumb:null}));
+    S.order=null;S.unplaced=new Set();   // fresh topsheets → reset print order
+    document.getElementById('topInfo').innerHTML=`<span class="tag ok">${S.topPages.length} pages</span> ${esc(f.name)} <span class="legend">building previews…</span>`;
+    // Topsheet fonts often won't paint in-browser (renders as lines only), but the
+    // text extracts cleanly — so draw a synthesised, always-legible card instead.
+    let carded=0,failed=0;
+    for(let i=0;i<S.top.pages.length;i++){
+      try{ S.topPages[i].thumb=renderTopsheetCard(S.topPages[i].fields,170,232); carded++; }
+      catch(e){ failed++; S.topPages[i].thumb=null; }
+    }
+    const gotText=S.topPages.filter(p=>(p.text||'').trim().length>3).length;
+    let note=`preview drawn from text — ${carded} cards`;
+    if(failed) note+=`, ${failed} failed`;
+    if(gotText===0) note=`⚠ no text could be extracted from this PDF — the cards will be blank. This PDF likely has no text layer (scanned/flattened image).`;
+    document.getElementById('topInfo').innerHTML=`<span class="tag ${gotText? 'ok':'bad'}">${S.topPages.length} pages</span> ${esc(f.name)} <span class="legend">${note}</span>`;
+  }catch(err){document.getElementById('topInfo').innerHTML='<span class="tag bad">Could not read: '+esc(err.message)+'</span>';}
+  checkReady();
+});
+wireDrop(document.getElementById('dropRec'),async files=>{
+  // files = array of individual receipt PDFs. EACH FILE = ONE RECEIPT (all its
+  // pages), so grouping is exact — no page-number/heuristic guessing needed.
+  document.getElementById('recInfo').innerHTML='<span class="tag">reading '+files.length+' file(s)…</span>';
+  try{
+    // sort by filename so order is stable/predictable (matches download order)
+    files.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+    // Re-dropping receipts renumbers page indices, so matches keyed by the old
+    // index would point at the wrong pages. Instead of wiping everything, remember
+    // each CONFIRMED / MANUAL match by its stable identity (file name + page number)
+    // and re-link it after the rebuild, so locked-in work survives. Unconfirmed auto
+    // guesses are dropped and recomputed. ("Clear all" on the match screen is the
+    // deliberate way to restart.)
+    const preserved={};
+    S.topPages.forEach((_,ti)=>{
+      const src=S.matchSource[ti];
+      if((src==='confirmed'||src==='manual')&&S.matches[ti]&&S.matches[ti].length){
+        preserved[ti]={src,conf:S.matchConf[ti],ids:S.matches[ti].map(pi=>{const r=(S.recPages||[]).find(x=>x.i===pi);return r?{name:r.fileName,num:r.num}:null;}).filter(Boolean)};
+      }
+    });
+    S.recFiles=[]; S.recPages=[]; S.recGroups=[]; S.recGroupOf={};
+    S.matches={}; S.matchConf={}; S.matchSource={};
+    let gi=0;
+    for(let fIdx=0; fIdx<files.length; fIdx++){
+      const f=files[fIdx];
+      const bytes=await readFile(f);
+      const doc=await loadPdf(bytes);
+      const fileRec={name:f.name, bytes, doc, pageCount:doc.numPages};
+      S.recFiles.push(fileRec);
+      const group=[];
+      for(let p=0;p<doc.pages.length;p++){
+        const globalIdx=S.recPages.length;
+        S.recPages.push({i:globalIdx, num:doc.pages[p].num, fileIdx:fIdx, fileName:f.name, text:doc.pages[p].text, _page:doc.pages[p]._page, thumb:null, assignedTo:null});
+        group.push(globalIdx);
+      }
+      S.recGroups.push(group);              // one file = one receipt group
+      group.forEach(pi=>S.recGroupOf[pi]=group);
+    }
+    // Re-link the preserved confirmed/manual matches to the NEW page indices by
+    // identity (file name + page number). A match whose file is no longer in the
+    // drop simply can't be re-linked and is reported below.
+    let relinked=0,lost=0;
+    Object.keys(preserved).forEach(tiStr=>{
+      const ti=+tiStr,P=preserved[tiStr],pages=[];
+      P.ids.forEach(id=>{const r=S.recPages.find(x=>x.fileName===id.name&&x.num===id.num);if(r){pages.push(r.i);r.assignedTo=ti;}});
+      if(pages.length){S.matches[ti]=pages.sort((a,b)=>a-b);S.matchConf[ti]=P.conf;S.matchSource[ti]=P.src;relinked++;}
+      else lost++;
+    });
+    document.getElementById('recInfo').innerHTML='<span class="tag ok">'+files.length+' receipts · '+S.recPages.length+' pages</span> <span class="legend">rendering thumbnails…</span>';
+    for(let i=0;i<S.recPages.length;i++){ try{S.recPages[i].thumb=await renderThumb(S.recPages[i]._page);}catch(e){} }
+    const multiFile=S.recGroups.filter(g=>g.length>1).length;
+    document.getElementById('recInfo').innerHTML='<span class="tag ok">'+files.length+' receipts · '+S.recPages.length+' pages</span>'+(multiFile?' <span class="tag warn">'+multiFile+' multi-page</span>':'')+(relinked?' <span class="tag ok">'+relinked+' confirmed match'+(relinked===1?'':'es')+' kept</span>':'')+(lost?' <span class="tag warn">'+lost+' locked match'+(lost===1?'':'es')+' dropped — file no longer present</span>':'');
+  }catch(err){document.getElementById('recInfo').innerHTML='<span class="tag bad">Could not read: '+esc(err.message)+'</span>';}
+  checkReady();
+}, true);  // <-- multi=true
+/* Grouping is now EXACT: one dropped file = one receipt (all of its pages).
+   buildRecGroups just rebuilds S.recGroups / S.recGroupOf straight from the
+   per-file page lists, so it can never re-guess or clobber the true grouping. */
+function buildRecGroups(){
+  const byFile={};
+  S.recPages.forEach(r=>{(byFile[r.fileIdx]=byFile[r.fileIdx]||[]).push(r.i);});
+  const groups=Object.keys(byFile).sort((a,b)=>a-b).map(k=>byFile[k].sort((a,b)=>a-b));
+  S.recGroups=groups;
+  S.recGroupOf={};
+  groups.forEach(g=>g.forEach(pi=>S.recGroupOf[pi]=g));
+}
+function checkReady(){
+  const haveRec=S.recFiles&&S.recFiles.length&&S.recPages.length;
+  const ok=S.top&&haveRec&&S.topPages.length;
+  document.getElementById('toMatch').disabled=!ok;
+  const msg=document.getElementById('pdfMsg');
+  if(!S.top||!haveRec){msg.innerHTML='';return;}
+  let warn='';
+  if(S.sequence.length&&S.topPages.length!==S.sequence.length)warn=`<div class="msg">Sequence has <b>${S.sequence.length}</b> items but topsheets PDF has <b>${S.topPages.length}</b> pages — check your mail-merge.</div>`;
+  msg.innerHTML=warn+(ok?'<div class="msg ok">Loaded '+S.topPages.length+' topsheets and '+S.recFiles.length+' receipts — matching now…</div>':'');
+  // Auto-flow: the FIRST time both are in, jump to matching automatically. After
+  // that (e.g. re-uploading receipts) the "Continue to matching" button is used.
+  if(ok && !S._autoAdvanced){ S._autoAdvanced=true; setTimeout(enterMatching,250); }
+}
+function enterMatching(){
+  try{ buildMatchUI(); goStep(3); runAutoMatch(); }
+  catch(err){ showLibWarn('Match screen error: '+esc(err.message)+'. Tell me this.'); }
+}
+document.getElementById('toMatch').addEventListener('click',enterMatching);
+
+/* ---- Step 3 match ---- */
+/* Label a topsheet from ITS OWN parsed fields (not sequence[i], which assumes
+   PDF page order == statement order — it does not). */
+function topAmountNum(tp){
+  const f=tp.fields||{};
+  const m=(f.amount||'').match(/(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/);
+  return m?parseFloat(m[1].replace(/,/g,'')):null;
+}
+function seqLabel(i){
+  const tp=S.topPages[i];const f=tp&&tp.fields||{};
+  const payee=f.payee||'';const amt=topAmountNum(tp);
+  if(payee||amt!=null) return {t:payee||'(topsheet '+(i+1)+')', s:(amt!=null?fmtAmt(amt):'')+(f.date?' · '+f.date:'')};
+  return {t:'Topsheet '+(i+1),s:'page '+(i+1)};
+}
+function buildMatchUI(){if(!S.topPages.length)return;if(!S.order||S.order.length!==S.topPages.length)S.order=S.topPages.map((_,i)=>i);S.topPages.forEach((_,i)=>{if(!S.matches[i])S.matches[i]=[];});renderPairs();renderPool();renderKpis();}
+/* Move a topsheet within the print order (pos = its current position in S.order). */
+function moveTop(pos,delta){
+  if(!S.order)return; const n=S.order.length; let np=pos+delta; if(np<0||np>=n)return;
+  const i=S.order[pos]; S.order.splice(pos,1); S.order.splice(np,0,i); S.unplaced.delete(i);
+  renderPairs();renderKpis();
+}
+function moveTopTo(pos){
+  if(!S.order)return; const i=S.order[pos];
+  const t=prompt('Move this topsheet to which position? (1–'+S.order.length+')', String(pos+1));
+  if(t==null)return; let np=parseInt(t,10); if(isNaN(np))return; np=Math.max(1,Math.min(S.order.length,np))-1;
+  S.order.splice(pos,1); S.order.splice(np,0,i); S.unplaced.delete(i);
+  renderPairs();renderKpis();
+}
+/* Reorder the topsheets to follow the credit-card STATEMENT sequence (Step 1).
+   PAYEE-driven: both the topsheets and the Step 1 sequence come from the same
+   AutoEntry data, so the payee names line up — that's the strongest signal, with
+   amount and date corroborating and breaking ties between same-named payees.
+   Every (sequence line ↔ topsheet) pair is scored, then assigned strongest-first
+   GLOBALLY (not line-by-line), so a strong later pair can't be blocked by a weak
+   early one. Topsheets with no match are parked at the end. */
+function sortToStatement(){
+  if(!S.sequence||!S.sequence.length){alert('Build the statement sequence in Step 1 first (paste your statement + AutoEntry export).');return;}
+  const near=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<0.005;
+  const cand=[];
+  S.sequence.forEach((s,si)=>{
+    const sKey=dateKey(s.date), amt=s.amount, stoks=payeeTokens(s.payee);
+    S.topPages.forEach((tp,i)=>{
+      const f=tp.fields||{};
+      const A=topAmountNum(tp);
+      const tKey=dateKey(parseDate(f.date));
+      const pscore=payeeScore(s.payee,f.payee);                        // fuzzy 0..1 name match
+      const shared=stoks.filter(tk=>payeeTokens(f.payee).includes(tk)).length; // distinctive words in common
+      const aOk=near(A,amt), dOk=sKey&&tKey&&sKey===tKey;
+      // Need SOME evidence: a reasonable name match, or an amount/date match.
+      if(pscore<0.34 && shared===0 && !aOk && !dOk) return;
+      // Payee dominates; amount strongly corroborates; date breaks remaining ties;
+      // tiny position nudge keeps naturally-ordered ties in their original order.
+      const score = Math.round(pscore*100) + shared*20 + (aOk?60:0) + (dOk?30:0)
+                  + Math.max(0, 4-Math.abs(si-i));
+      cand.push({si,i,score});
+    });
+  });
+  cand.sort((a,b)=>b.score-a.score || a.si-b.si || a.i-b.i);
+  const seqTaken=new Set(), topTaken=new Set(), placeOf={};   // placeOf[si] = topsheet index
+  cand.forEach(c=>{
+    if(seqTaken.has(c.si)||topTaken.has(c.i))return;
+    seqTaken.add(c.si); topTaken.add(c.i); placeOf[c.si]=c.i;
+  });
+  // Emit the matched topsheets in the statement's own order.
+  const placed=[];
+  S.sequence.forEach((_,si)=>{ if(placeOf[si]!=null) placed.push(placeOf[si]); });
+  const parked=[]; S.topPages.forEach((_,i)=>{ if(!topTaken.has(i)) parked.push(i); });
+  S.order=placed.concat(parked);
+  S.unplaced=new Set(parked);
+  renderPairs();renderKpis();
+  if(placed.length) setTimeout(()=>scrollToCard(S.order[0]),60);
+}
+/* Scroll the PAGE so a given topsheet card sits near the top of the viewport.
+   Plain window scroll — can't land off-screen the way a nested scroll box could. */
+function scrollToCard(seqIdx){
+  const card=document.querySelector('#pairList .pair[data-seq="'+seqIdx+'"]');
+  if(!card){dbg('scrollToCard: card '+seqIdx+' not found');return;}
+  const y=card.getBoundingClientRect().top + (window.scrollY||window.pageYOffset||0) - 80;
+  window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
+  card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),1600);
+  dbg('scrolled page to card '+(seqIdx+1)+' (pageY='+Math.round(y)+')');
+}
+function kpi(v,l){return `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`;}
+function renderKpis(){
+  const total=S.topPages.length;
+  let m=0,confirmed=0,toReview=0;
+  S.topPages.forEach((_,i)=>{
+    const has=S.matches[i]&&S.matches[i].length;
+    if(!has){ toReview++; return; }
+    m++;
+    const src=S.matchSource[i];
+    if(src==='confirmed'||src==='manual') confirmed++;   // human-verified
+    else toReview++;                                      // unconfirmed auto-match
+  });
+  const groups=S.recGroups||[];
+  const recUnassigned=groups.filter(g=>g.every(pi=>{const r=S.recPages.find(x=>x.i===pi);return r&&r.assignedTo==null;})).length;
+  const pct=total?Math.round((confirmed)/total*100):0;
+  const bits=['<b>'+m+' of '+total+'</b> matched','<b>'+confirmed+'</b> confirmed'];
+  if(toReview) bits.push('<b>'+toReview+'</b> to review'); else bits.push('all done ✓');
+  if(recUnassigned) bits.push(recUnassigned+' receipt'+(recUnassigned>1?'s':'')+' spare');
+  document.getElementById('progressBar').innerHTML=
+    '<div class="prog"><div class="progfill" style="width:'+pct+'%"></div></div>'
+    +'<div class="progtxt">'+bits.join(' &nbsp;·&nbsp; ')+'</div>';
+}
+function renderPairs(){
+  const el=document.getElementById('pairList');el.innerHTML='';
+  const status=document.createElement('div');
+  status.style.cssText='font-size:12px;color:#7d7767;margin-bottom:8px';
+  el.appendChild(status);
+  let drawn=0,errs=0;
+  const order=(S.order&&S.order.length===S.topPages.length)?S.order:S.topPages.map((_,k)=>k);
+  order.forEach((i,pos)=>{
+    const tp=S.topPages[i];
+    try{
+      const assigned=S.matches[i]||[];
+      const hasR=assigned.length>0;
+      const conf=S.matchConf[i];                         // 'high' | 'low'
+      const src=S.matchSource[i];                        // 'auto' | 'manual' | 'confirmed'
+      const need=!hasR;
+      // Needs the human's attention = no receipt yet, an unconfirmed auto-match,
+      // or a topsheet that couldn't be auto-placed into the statement order.
+      const review=need||(hasR&&src==='auto')||S.unplaced.has(i);
+      if(S.reviewOnly && !review) return;                // review filter
+      // Per-state stripe colour + badge.
+      let stateCls,badge;
+      if(need){ stateCls='st-need'; badge='<span class="cbadge need">no receipt yet</span>'; }
+      else if(src==='confirmed'){ stateCls='st-ok'; badge='<span class="cbadge conf">✓ confirmed</span>'; }
+      else if(src==='manual'){ stateCls='st-manual'; badge='<span class="cbadge manual">✋ manual</span>'; }
+      else if(conf==='low'){ stateCls='st-low'; badge='<span class="cbadge low">⚠ auto · check</span>'; }
+      else { stateCls='st-auto'; badge='<span class="cbadge auto">✓ auto</span>'; }
+      const pair=document.createElement('div');
+      pair.className='pair '+stateCls;
+      pair.style.minHeight='60px';pair.dataset.seq=i;pair.dataset.pos=pos;
+      const f=tp.fields||{};
+      const payee=esc(f.payee||'(payee not read)');
+      const amount= f.amount?esc(f.amount):'+ add amount';
+      const amtCls= f.amount?'tamt':'tamt tamt-empty';
+      const desc=esc((f.desc||'').slice(0,90));
+      const date=esc(f.date||'');
+      const parkTag = S.unplaced.has(i) ? '<span class="cbadge park">↕ place me</span>' : '';
+      const head=document.createElement('div');
+      head.draggable=true;   // the whole header bar is a drag handle for reordering
+      head.className='phead'; // so reorder math can measure the ROW, not the tall card
+      head.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f6f2e9;border-bottom:1px solid #d8d2c4;cursor:grab';
+      const placeBtn = S.pickedRp!=null ? '<button class="poolbtn placebtn" data-i="'+i+'" style="flex:none;background:#2f5d50;color:#fff;border-color:#2f5d50">◀ Place here</button>' : '';
+      head.innerHTML='<span class="ordgrip" title="Drag the header to reorder">⠿</span>'
+        +'<span class="ordctl" title="Print order — use arrows or click the number to move">'
+          +'<button class="ordbtn up">▲</button>'
+          +'<button class="ordnum">'+(pos+1)+'</button>'
+          +'<button class="ordbtn dn">▼</button>'
+        +'</span>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:16px;font-weight:700;color:#1c2321">'+payee+' <span class="'+amtCls+'" data-i="'+i+'" title="Click to edit the amount">'+amount+'</span></div>'
+        +'<div style="font-size:12px;color:#7d7767;margin-top:2px">'+desc+(date?' · '+date:'')+'</div>'
+        +'</div>'
+        +parkTag
+        +badge
+        +placeBtn
+        +'<button class="poolbtn viewbtn tview" data-i="'+i+'" style="flex:none">🔍 View topsheet</button>';
+      pair.appendChild(head);
+      const slot=document.createElement('div');slot.className='slot'+(S.pickedRp!=null&&!assigned.length?' pickable':'');slot.dataset.seq=i;
+      // Append the row to the DOM NOW, before rendering matched receipts, so a
+      // render error in the matched block can never make the whole topsheet row
+      // (and its Unmatch button) silently vanish.
+      pair.appendChild(slot);el.appendChild(pair);
+      // The whole header bar is the reorder drag handle (bigger, less fiddly than
+      // the grip). Buttons/links inside still receive their own clicks.
+      head.addEventListener('dragstart',ev=>{
+        // If the drag STARTS on an interactive control (amount, order buttons,
+        // view/place), cancel the reorder-drag so the control's CLICK fires instead.
+        // Without this, a 1px pointer twitch on the amount turns the click into a
+        // drag, so "add amount" (and the other buttons) only worked intermittently.
+        if(ev.target.closest && ev.target.closest('.tamt,.ordbtn,.ordnum,.tview,.placebtn')){ev.preventDefault();return;}
+        S.dragTopPos=pos;S.dragRp=null;ev.dataTransfer.setData('text/plain','TOP');ev.dataTransfer.effectAllowed='move';pair.classList.add('dragging');dbg('REORDER drag topsheet from position '+(pos+1));
+      });
+      head.addEventListener('dragend',()=>{S.dragTopPos=null;pair.classList.remove('dragging');el.querySelectorAll('.pair.dropover,.pair.drop-above,.pair.drop-below').forEach(x=>x.classList.remove('dropover','drop-above','drop-below'));});
+      const up=head.querySelector('.ordbtn.up'); if(up) up.addEventListener('click',ev=>{ev.stopPropagation();moveTop(pos,-1);});
+      const dn=head.querySelector('.ordbtn.dn'); if(dn) dn.addEventListener('click',ev=>{ev.stopPropagation();moveTop(pos,1);});
+      const on=head.querySelector('.ordnum'); if(on) on.addEventListener('click',ev=>{ev.stopPropagation();moveTopTo(pos);});
+      const ae=head.querySelector('.tamt'); if(ae) ae.addEventListener('click',ev=>{ev.stopPropagation();editAmount(i);});
+      const tv=head.querySelector('.tview'); if(tv) tv.addEventListener('click',()=>{dbg('TOPSHEET VIEW '+(i+1));openPreview('top',i);});
+      const pb=head.querySelector('.placebtn'); if(pb) pb.addEventListener('click',ev=>{ev.stopPropagation();dbg('PLACE HERE topsheet '+(i+1)+' pickedRp='+S.pickedRp);if(S.pickedRp!=null){const p=S.pickedRp;S.pickedRp=null;assignReceipt(p,i);}});
+      if(!assigned.length){ slot.innerHTML='<div class="empty">'+(S.pickedRp!=null?'▶ click here to place the picked receipt':'drag a receipt here, or click “Match →” on a receipt then click here')+'</div>'; }
+      else {
+        try{
+          renderMatchedRows(slot,assigned,i);
+        }catch(err){
+          dbg('RENDER matched FAILED topsheet '+(i+1)+': '+err.message);
+          // Fail-safe: still show a working Unmatch even if the rich row errored.
+          slot.innerHTML='';
+          const row=document.createElement('div');row.className='receipt';
+          row.innerHTML='<span class="rclabel">'+assigned.length+' receipt page(s) matched</span>'
+            +'<button class="poolbtn removebtn" data-seq="'+i+'">✕ Unmatch all</button>';
+          slot.appendChild(row);
+          row.querySelector('.removebtn').addEventListener('click',ev=>{ev.stopPropagation();assigned.slice().forEach(pi=>{S.matches[i]=S.matches[i].filter(v=>v!==pi);const rr=S.recPages.find(x=>x.i===pi);if(rr)rr.assignedTo=null;});renderPairs();renderPool();renderKpis();});
+        }
+      }
+      drawn++;
+    }catch(e){errs++;}
+  });
+  if(drawn===0 && S.reviewOnly){
+    el.insertAdjacentHTML('beforeend','<div class="msg ok" style="text-align:center;padding:24px">🎉 Nothing left to review — every topsheet has a confident match. Untick “Show only items to review” to see them all.</div>');
+  }
+  status.textContent=S.reviewOnly?(drawn+' item(s) needing review'):(drawn+' topsheets'+(errs?(' · '+errs+' failed to render'):''));
+}
+/* Render the matched-receipt cards into a topsheet's slot. One clean chip card
+   per source FILE (each dropped file = one receipt), with View / Verify / Unmatch. */
+function renderMatchedRows(slot,assigned,i){
+  const byFile={};
+  assigned.forEach(rp=>{const r=S.recPages.find(x=>x.i===rp);const fi=r?String(r.fileIdx):('_'+rp);(byFile[fi]=byFile[fi]||[]).push(rp);});
+  Object.keys(byFile).forEach(fi=>{
+    const pages=byFile[fi].sort((a,b)=>a-b);
+    const head0=S.recPages.find(x=>x.i===pages[0]);
+    const fileName=(S.recFiles&&S.recFiles[fi]&&S.recFiles[fi].name)||'';
+    const gtext=pages.map(pi=>{const r=S.recPages.find(x=>x.i===pi);return r&&r.text||'';}).join(' ');
+    const totals=receiptTotals(gtext);
+    const totalStr=totals.length?('£'+totals[0].toFixed(2)):'';
+    const t=head0&&head0.thumb?'<img src="'+head0.thumb+'" class="mthumb" draggable="false" title="View side-by-side">':'';
+    const num=isNaN(Number(fi))?fi:(Number(fi)+1);
+    const sub=[totalStr,(pages.length>1?pages.length+' pages':''),esc(fileName)].filter(Boolean).join(' · ');
+    const card=document.createElement('div');card.className='matched';
+    const src=S.matchSource[i];
+    const confirmChip = src==='auto' ? '<button class="chip confirm">✓ Confirm</button>'
+      : src==='confirmed' ? '<button class="chip unconfirm">↩ Unconfirm</button>' : '';
+    card.innerHTML=t
+      +'<div class="minfo"><div class="mtitle">Receipt '+num+'</div><div class="msub">'+sub+'</div></div>'
+      +'<div class="mactions">'
+      +confirmChip
+      +'<button class="chip verify">🔎 Verify</button>'
+      +'<button class="chip view">🔍 Receipt</button>'
+      +'<button class="chip unmatch">✕ Unmatch</button>'
+      +'</div>';
+    slot.appendChild(card);
+    const cc=card.querySelector('.confirm'); if(cc) cc.addEventListener('click',ev=>{ev.stopPropagation();confirmMatch(i);});
+    const uc=card.querySelector('.unconfirm'); if(uc) uc.addEventListener('click',ev=>{ev.stopPropagation();unconfirmMatch(i);});
+    card.querySelector('.verify').addEventListener('click',ev=>{ev.stopPropagation();openPairPreview(i,pages[0]);});
+    card.querySelector('.view').addEventListener('click',ev=>{ev.stopPropagation();openPreview('rec',pages[0]);});
+    card.querySelector('.unmatch').addEventListener('click',ev=>{ev.stopPropagation();dbg('UNMATCH Receipt '+num+' from topsheet '+(i+1));pages.forEach(pi=>{S.matches[i]=S.matches[i].filter(v=>v!==pi);const rr=S.recPages.find(x=>x.i===pi);if(rr)rr.assignedTo=null;});if(!(S.matches[i]&&S.matches[i].length)){delete S.matchConf[i];delete S.matchSource[i];}renderPairs();renderPool();renderKpis();});
+    const th=card.querySelector('.mthumb'); if(th) th.addEventListener('click',ev=>{ev.stopPropagation();openPairPreview(i,pages[0]);});
+  });
+}
+/* Event delegation for topsheet cards: ONE set of listeners on #pairList that
+   can never be lost per-row. The WHOLE card (.pair) is a drop target, not just
+   the little dashed slot — releasing anywhere on a topsheet counts. dragover
+   ALWAYS calls preventDefault inside the list so the browser permits the drop
+   (without that, no drop event fires at all — the bug we saw in the log). */
+(function wireSlotDelegation(){
+  const list=document.getElementById('pairList');
+  if(!list||list._wired) return; list._wired=true;
+  function pairOf(t){ while(t&&t!==list){ if(t.classList&&t.classList.contains('pair')) return t; t=t.parentNode; } return null; }
+  // Above/below decision uses the HEADER row (the visible bar the user aims at),
+  // not the whole card — a tall card with receipts otherwise made every drop read
+  // as "above it", so downward drags looked like they did nothing.
+  function dropAfter(p,clientY){ const h=p.querySelector('.phead')||p; const r=h.getBoundingClientRect(); return clientY > r.top + r.height/2; }
+  const clearCues=()=>list.querySelectorAll('.pair.dropover,.pair.drop-above,.pair.drop-below').forEach(x=>x.classList.remove('dropover','drop-above','drop-below'));
+  list.addEventListener('dragover',e=>{
+    e.preventDefault();                          // permit dropping anywhere in the list
+    e.dataTransfer.dropEffect='move';
+    const p=pairOf(e.target);
+    list.querySelectorAll('.pair.dropover,.pair.drop-above,.pair.drop-below').forEach(x=>{if(x!==p)x.classList.remove('dropover','drop-above','drop-below');});
+    if(!p)return;
+    if(S.dragTopPos!=null){                        // reordering → show an insertion line
+      const after=dropAfter(p,e.clientY);
+      p.classList.toggle('drop-below',after);
+      p.classList.toggle('drop-above',!after);
+      p.classList.remove('dropover');
+    } else {                                       // matching a receipt → highlight the card
+      p.classList.add('dropover');
+    }
+  });
+  list.addEventListener('dragleave',e=>{const p=pairOf(e.target);if(p&&!p.contains(e.relatedTarget))p.classList.remove('dropover','drop-above','drop-below');});
+  list.addEventListener('drop',e=>{
+    e.preventDefault();
+    const p=pairOf(e.target);
+    clearCues();
+    // (A) Reordering a topsheet card by dragging its header?
+    if(S.dragTopPos!=null){
+      const from=S.dragTopPos; S.dragTopPos=null;
+      if(!p||!S.order){return;}
+      const to=+p.dataset.pos; if(isNaN(to))return;
+      // Drop on the TOP half of the header → land before it; BOTTOM half → after it.
+      // Measuring the header (not the whole card) fixes downward drags onto tall
+      // cards that used to insert before the target = no visible move.
+      const after=dropAfter(p,e.clientY);
+      const [x]=S.order.splice(from,1);
+      let ins = after ? to+1 : to;
+      if(from < ins) ins--;                       // account for the removal shift
+      ins=Math.max(0,Math.min(S.order.length,ins));
+      S.order.splice(ins,0,x);
+      S.unplaced.delete(x);
+      renderPairs();renderKpis();
+      return;
+    }
+    // (B) Otherwise a receipt was dropped onto a topsheet → match it.
+    if(!p){dbg('DROP missed a topsheet (released between cards) — try again on a card');return;}
+    const i=+p.dataset.seq;
+    let rp=parseInt(e.dataTransfer.getData('text/plain'),10);
+    if(isNaN(rp))rp=S.dragRp;
+    dbg('DROP rp='+rp+' → topsheet '+(i+1));
+    if(rp!=null&&!isNaN(rp))assignReceipt(rp,i);
+    S.dragRp=null;
+  });
+  list.addEventListener('click',e=>{
+    if(e.target.closest&&e.target.closest('.matched,.removebtn,.chip,.tview,.placebtn,.tamt,.ordctl,.ordgrip'))return; // let cards/buttons handle their own clicks
+    const p=pairOf(e.target);if(!p)return;const i=+p.dataset.seq;
+    if(S.pickedRp!=null){dbg('CLICK place picked receipt → topsheet '+(i+1));const pk=S.pickedRp;S.pickedRp=null;assignReceipt(pk,i);}
+  });
+})();
+function renderPool(){
+  const el=document.getElementById('recPool');el.innerHTML='';
+  const groups=(S.recGroups||S.recPages.map(r=>[r.i])).filter(g=>g.every(pi=>{const r=S.recPages.find(x=>x.i===pi);return r&&r.assignedTo==null;}));
+  groups.forEach(g=>{
+    const first=S.recPages.find(x=>x.i===g[0]);
+    const fileIdx=first?first.fileIdx:0;
+    const fileName=(S.recFiles&&S.recFiles[fileIdx]&&S.recFiles[fileIdx].name)||'';
+    const d=document.createElement('div');d.className='doc';d.draggable=true;
+    const t=first&&first.thumb?`<img src="${first.thumb}" draggable="false" title="Click to view full size">`:'<div class="nothumb">receipt</div>';
+    const gtext=g.map(pi=>(S.recPages[pi].text||'')).join(' ');
+    const totals=receiptTotals(gtext);
+    const totalStr=totals.length?('£'+totals[0].toFixed(2)):'total not detected';
+    const multi=g.length>1;
+    const title = `Receipt ${fileIdx+1}`;
+    const sub = (fileName?esc(fileName):'')+(multi?` · ${g.length} pages`:'');
+    const groupTag = multi ? `<span class="tag warn">${g.length}-page receipt (kept together)</span>` : '';
+    d.innerHTML=`${t}<div class="meta"><div class="p">${esc(title)} · <span style="color:var(--accent2)">${esc(totalStr)}</span></div><div class="s">${sub}</div>${groupTag}`
+      +`<div class="poolactions"><button class="poolbtn matchbtn" data-rp="${g[0]}">${S.pickedRp===g[0]?'✓ picked — click a topsheet':'Match →'}</button><button class="poolbtn viewbtn" data-rp="${g[0]}">🔍 View</button></div></div>`;
+    if(S.pickedRp===g[0]) d.style.outline='2px solid var(--accent2)';
+    const img=d.querySelector('img'); if(img) img.addEventListener('click',ev=>{ev.stopPropagation();openPreview('rec',g[0]);});
+    d.querySelector('.matchbtn').addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();S.pickedRp=(S.pickedRp===g[0]?null:g[0]);dbg('PICK Receipt '+(fileIdx+1)+' (pickedRp='+S.pickedRp+')');renderPool();renderPairs();});
+    d.querySelector('.viewbtn').addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();openPreview('rec',g[0]);});
+    d.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',String(g[0]));e.dataTransfer.effectAllowed='move';d.classList.add('dragging');S.dragRp=g[0];dbg('DRAGSTART Receipt '+(fileIdx+1)+' — now drop it on a topsheet');});
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    el.appendChild(d);
+  });
+  if(!el.children.length)el.innerHTML='<div class="legend">All receipt pages assigned.</div>';
+}
+/* Assign a receipt to a topsheet. If the page belongs to a multi-page group,
+   the whole group moves together. */
+function assignReceipt(rp,seqIdx,silent){
+  const grp=(S.recGroupOf&&S.recGroupOf[rp])||[rp];
+  grp.forEach(pi=>{
+    const r=S.recPages.find(r=>r.i===pi);if(!r)return;
+    if(r.assignedTo!=null&&S.matches[r.assignedTo])S.matches[r.assignedTo]=S.matches[r.assignedTo].filter(v=>v!==pi);
+    r.assignedTo=seqIdx;
+    if(!S.matches[seqIdx].includes(pi))S.matches[seqIdx].push(pi);
+  });
+  S.matches[seqIdx].sort((a,b)=>a-b);
+  S.matchConf[seqIdx]='manual';                 // user placed it deliberately → confident
+  S.matchSource[seqIdx]='manual';
+  dbg('ASSIGNED → topsheet '+(seqIdx+1)+' now has '+S.matches[seqIdx].length+' receipt page(s)');
+  if(!silent){
+    renderPairs();renderPool();renderKpis();
+    // Flow: jump to the NEXT topsheet that still needs attention (unmatched or amber).
+    let nxt=-1;
+    for(let k=1;k<=S.topPages.length;k++){const j=(seqIdx+k)%S.topPages.length;const has=S.matches[j]&&S.matches[j].length;if(!has||S.matchConf[j]==='low'){nxt=j;break;}}
+    setTimeout(()=>scrollToCard(nxt>=0?nxt:seqIdx),60);
+  }
+}
+/* Mark an auto-match as human-verified → "confirmed" (conf preserved so undo is exact). */
+function confirmMatch(i){
+  if(S.matches[i]&&S.matches[i].length){ S.matchSource[i]='confirmed'; renderPairs();renderPool();renderKpis(); }
+}
+/* Undo a confirm (for mis-clicks) → back to an unconfirmed auto-match. */
+function unconfirmMatch(i){
+  if(S.matchSource[i]==='confirmed'){ S.matchSource[i]='auto'; renderPairs();renderPool();renderKpis(); }
+}
+/* Manually set / correct a topsheet's amount (for ones the PDF text didn't parse). */
+function editAmount(i){
+  const f=S.topPages[i].fields||(S.topPages[i].fields={});
+  const cur=(f.amount||'').replace(/[£,\s]/g,'');
+  const v=prompt('Amount for topsheet '+(i+1)+(f.payee?' — '+f.payee:'')+':', cur||'');
+  if(v==null) return;
+  // Strip £, commas and spaces FIRST, then take the whole number (any length).
+  const raw=String(v).replace(/[£,\s]/g,'');
+  const m=raw.match(/\d+(?:\.\d{1,2})?/);
+  if(!m){ f.amount=''; }
+  else { let num=m[0]; if(!/\./.test(num)) num+='.00'; else if(/\.\d$/.test(num)) num+='0'; f.amount='£'+num; }
+  renderPairs();renderKpis();
+}
+
+/* Auto-match — per receipt FILE (each dropped file = one receipt).
+   Scoring model instead of a pure forward walk, so it no longer breaks when the
+   statement order and the receipt order differ, and duplicate amounts (e.g. many
+   Amazon receipts) are separated by PAYEE NAME rather than by luck of position:
+     · +100 if the receipt's explicit document total = the topsheet amount
+     · +45  if any amount on the receipt = the topsheet amount (weaker)
+     · +12 per matching payee word found in the receipt text (max +48)
+     · small proximity nudge so ties resolve toward the natural order
+   All (topsheet, receipt) candidates are scored, sorted best-first, then assigned
+   greedily so the strongest matches win and each side is used once. */
+const _STOP=new Set(['ltd','limited','plc','llp','the','and','for','inc','co','company','uk','gb','london','invoice','receipt','payment','order','total','purchase','ref','number','tax','vat','www','com','http','https','http','store','shop']);
+function payeeTokens(s){return (s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>=3&&!_STOP.has(w));}
+function amountsIn(text){return [...text.matchAll(/(\d{1,3}(?:,\d{3})*\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,'')));}
+function receiptTotals(text){
+  // Extract the receipt's DOCUMENT TOTAL from explicit total labels only.
+  // Deliberately excludes "Subtotal" and "Total excluding tax" (not the payable).
+  const t=text||'';const vals=[];
+  const re=/(?:invoice\s*total|total\s*payable|total\s*paid|order\s*total|grand\s*total(?:\s*incl?[^£\d]*)?|amount\s*(?:due|paid)|total\s*charge|balance\s*due|total)\s*[:£]?\s*(?:gbp\s*)?£?\s*(\d{1,3}(?:,\d{3})*\.\d{2})/ig;
+  let m;while((m=re.exec(t))){
+    const pre=t.slice(Math.max(0,m.index-14),m.index).toLowerCase();
+    if(/sub\s*$/.test(pre)||/excluding tax\s*$/.test(pre)) continue;
+    vals.push(parseFloat(m[1].replace(/,/g,'')));
+  }
+  return vals;
+}
+function runAutoMatch(){
+  // Preserve human-verified matches (confirmed) and manual matches across a re-run —
+  // only the untouched AUTO guesses get recomputed. Confirmed stays confirmed.
+  const locked=[];
+  S.topPages.forEach((_,i)=>{const src=S.matchSource[i];if((src==='confirmed'||src==='manual')&&S.matches[i]&&S.matches[i].length)locked.push({i,pages:S.matches[i].slice(),src,conf:S.matchConf[i]});});
+  S.topPages.forEach((_,i)=>S.matches[i]=[]);S.recPages.forEach(r=>r.assignedTo=null);S.matchConf={};S.matchSource={};
+  const lockedTop=new Set(), lockedFiles=new Set();
+  locked.forEach(L=>{
+    S.matches[L.i]=L.pages.slice(); S.matchConf[L.i]=L.conf; S.matchSource[L.i]=L.src; lockedTop.add(L.i);
+    L.pages.forEach(pi=>{const r=S.recPages.find(x=>x.i===pi); if(r){r.assignedTo=L.i; lockedFiles.add(r.fileIdx);}});
+  });
+  const groups=S.recGroups||[];                       // each group = one file's page indices
+  const gFile=groups.map(g=>{const r=S.recPages.find(x=>x.i===g[0]);return r?r.fileIdx:-1;});
+  const lockedGroups=new Set(); groups.forEach((g,gx)=>{ if(lockedFiles.has(gFile[gx])) lockedGroups.add(gx); });
+  const near=(a,b)=>Math.abs(a-b)<0.005;
+  const gInfo=groups.map(g=>{
+    const txt=g.map(pi=>S.recPages[pi].text||'').join(' ');
+    const totals=receiptTotals(txt);                  // amounts printed next to total/amount-due labels
+    const amts=amountsIn(txt);                         // every money amount on the receipt
+    const maxAmt=amts.length?Math.max.apply(null,amts):null;   // largest figure ≈ likely charged
+    return {totals,amts,maxAmt,low:txt.toLowerCase()};
+  });
+  const topAmt=i=>{let a=topAmountNum(S.topPages[i]);if(a==null&&S.sequence[i])a=S.sequence[i].amount;return a;};
+  // How many receipts could plausibly PAY a given amount (labelled total or largest figure).
+  const payableCount=A=>gInfo.filter(gi=>gi.totals.some(v=>near(v,A))||(gi.maxAmt!=null&&near(gi.maxAmt,A))).length;
+  const triples=[];
+  for(let i=0;i<S.topPages.length;i++){
+    if(lockedTop.has(i)) continue;                                     // keep confirmed/manual as-is
+    const A=topAmt(i); if(A==null) continue;
+    const ptoks=payeeTokens((S.topPages[i].fields||{}).payee);
+    const unique=payableCount(A)===1;
+    for(let g=0; g<groups.length; g++){
+      if(lockedGroups.has(g)) continue;                                // receipt already used by a kept match
+      const gi=gInfo[g];
+      const totalMatch = gi.totals.some(v=>near(v,A));                 // labelled total = strongest
+      const maxMatch   = !totalMatch && gi.maxAmt!=null && near(gi.maxAmt,A); // largest figure = medium
+      if(!totalMatch && !maxMatch) continue;                           // ignore stray line-item amounts entirely
+      const pmatched  = ptoks.filter(tk=>gi.low.includes(tk)).length;
+      const payeeKnown= ptoks.length>0, payeeAgree=pmatched>0;
+      // STRICT payee gate — the biggest reliability win:
+      //  · if we can read the topsheet's payee, the receipt text MUST contain it,
+      //    otherwise refuse the match (no "unique amount" override — that let
+      //    wrong-payee pairs through when an amount was mis-read);
+      //  · if the payee can't be read at all, only accept a labelled total that is
+      //    unique to one receipt.
+      if(payeeKnown){ if(!payeeAgree) continue; }
+      else { if(!(totalMatch && unique)) continue; }
+      const base=totalMatch?100:60;
+      const score=base + pmatched*30 + (unique?15:0) + Math.max(0,5-Math.abs(g-i));
+      triples.push({i,g,score,totalMatch,payeeAgree,unique});
+    }
+  }
+  triples.sort((a,b)=>b.score-a.score||a.i-b.i);
+  const tTaken=new Set(lockedTop), gTaken=new Set(lockedGroups); let matched=0;
+  triples.forEach(tr=>{
+    if(tTaken.has(tr.i)||gTaken.has(tr.g))return;
+    tTaken.add(tr.i);gTaken.add(tr.g);
+    groups[tr.g].forEach(pi=>{S.recPages[pi].assignedTo=tr.i;if(!S.matches[tr.i].includes(pi))S.matches[tr.i].push(pi);});
+    S.matches[tr.i].sort((a,b)=>a-b);
+    // GREEN = labelled-total match confirmed by the payee name. AMBER = anything
+    // else (largest-figure + payee, or a unique total with no readable payee).
+    S.matchConf[tr.i]=(tr.totalMatch && tr.payeeAgree)?'high':'low';
+    S.matchSource[tr.i]='auto';
+    matched++;
+  });
+  renderPairs();renderPool();renderKpis();
+  const emptyTop=S.topPages.filter((_,i)=>!(S.matches[i]&&S.matches[i].length)).length;
+  const freeRec=groups.filter((_,g)=>!gTaken.has(g)).length;
+  // Start at the top of the list (topsheet 1) — buttons are reliably visible now,
+  // so there's no need to leap to a lower card.
+  if(S.topPages.length) setTimeout(()=>scrollToCard(0),80);
+}
+document.getElementById('autoMatch').addEventListener('click',runAutoMatch);
+document.getElementById('sortStmt').addEventListener('click',sortToStatement);
+document.getElementById('autoMatchPos').addEventListener('click',()=>{
+  // Blind positional fallback: pair topsheet i with the i-th receipt, in order.
+  // Marked amber (low) since it isn't evidence-based — worth a quick check.
+  S.topPages.forEach((_,i)=>S.matches[i]=[]);S.recPages.forEach(r=>r.assignedTo=null);S.matchConf={};S.matchSource={};
+  const groups=S.recGroups||S.recPages.map(r=>[r.i]);
+  const n=Math.min(S.topPages.length,groups.length);
+  for(let i=0;i<n;i++){ assignReceipt(groups[i][0],i,true); S.matchConf[i]='low'; S.matchSource[i]='auto'; }
+  renderPairs();renderPool();renderKpis();
+});
+document.getElementById('clearMatch').addEventListener('click',()=>{
+  const locked=S.topPages.filter((_,i)=>S.matchSource[i]==='confirmed'||S.matchSource[i]==='manual').length;
+  const warn='Clear ALL matches and start over?'+(locked?' This also removes your '+locked+' confirmed/manual match'+(locked===1?'':'es')+'.':'')+' This cannot be undone.';
+  if(!confirm(warn))return;
+  S.topPages.forEach((_,i)=>S.matches[i]=[]);S.recPages.forEach(r=>r.assignedTo=null);S.matchConf={};S.matchSource={};renderPairs();renderPool();renderKpis();
+});
+document.getElementById('reviewOnly').addEventListener('change',e=>{S.reviewOnly=e.target.checked;renderPairs();renderKpis();});
+document.getElementById('toExport').addEventListener('click',()=>{buildExportUI();goStep(4);});
+
+/* ---- Step 4 export (pdf-lib lossless merge) ---- */
+function buildExportUI(){
+  const total=S.topPages.length;let m=0,rc=0;
+  S.topPages.forEach((_,i)=>{if(S.matches[i]&&S.matches[i].length){m++;rc+=S.matches[i].length;}});
+  document.getElementById('expKpis').innerHTML=kpi(total,'topsheets')+kpi(rc,'receipt pages')+kpi(total-m,'topsheets w/o receipt');
+  const empt=[];S.topPages.forEach((_,i)=>{if(!S.matches[i]||!S.matches[i].length)empt.push(i+1);});
+  document.getElementById('expWarn').innerHTML=empt.length?`<div class="msg">Topsheets with no receipt: <b>${empt.join(', ')}</b>. Included anyway; slot skipped.</div>`:'<div class="msg ok">Every topsheet has a receipt.</div>';
+}
+document.getElementById('doExport').addEventListener('click',async()=>{
+  const msg=document.getElementById('expMsg');
+  if(!window.PDFLib){msg.innerHTML='<span class="tag bad">PDF library not loaded</span>';return;}
+  msg.innerHTML='<span class="tag">building…</span>';
+  try{
+    const {PDFDocument}=PDFLib;
+    const out=await PDFDocument.create();
+    const topSrc=await PDFDocument.load(S.topBytes.slice(0));
+    // Load each receipt file once, cache the pdf-lib doc by fileIdx.
+    const recSrcCache={};
+    async function recSrc(fileIdx){ if(!recSrcCache[fileIdx]){ recSrcCache[fileIdx]=await PDFDocument.load(S.recFiles[fileIdx].bytes.slice(0)); } return recSrcCache[fileIdx]; }
+    const order=(S.order&&S.order.length===S.topPages.length)?S.order:S.topPages.map((_,k)=>k);
+    for(const i of order){
+      const [tp]=await out.copyPages(topSrc,[S.topPages[i].num-1]);out.addPage(tp);
+      for(const rp of (S.matches[i]||[])){
+        const r=S.recPages.find(x=>x.i===rp);
+        if(r){ const src=await recSrc(r.fileIdx); const [rpg]=await out.copyPages(src,[r.num-1]); out.addPage(rpg); }
+      }
+    }
+    const bytes=await out.save();
+    downloadBytes(bytes,'Topsheets_and_Receipts_Ordered.pdf','application/pdf');
+    msg.innerHTML='<span class="tag ok">PDF built — check downloads</span>';
+  }catch(err){msg.innerHTML='<span class="tag bad">Merge failed: '+esc(err.message)+'</span>';}
+});
+function sageDate(dt){return dt?String(dt.d).padStart(2,'0')+'/'+String(dt.mo).padStart(2,'0')+'/'+dt.y:'';}
+function csvField(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function runSageExport(onlyRecognised){
+  const msg=document.getElementById('sageMsg');
+  if(!S.sequence.length){msg.innerHTML='<span class="tag warn">Build a sequence first</span>';return;}
+  const period=(document.getElementById('ccPeriod').value||'CC').trim();
+  const noAcct=[]; let out='',count=0;
+  S.sequence.forEach(s=>{
+    // "Recognised only" = every statement line the sequence builder matched to an
+    // AutoEntry row (s.matched). The red/orange "unmatched" rows are skipped.
+    if(onlyRecognised && !s.matched) return;
+    const nom=(s.acct||'').replace(/[^0-9]/g,''); if(!nom)noAcct.push(s.idx);
+    const narr=[s.payee,s.desc].filter(Boolean).join(' - ');
+    out+=['VP','1107',nom,'0',sageDate(s.date),period,narr,s.amount.toFixed(2),'T9','0','1','','MANAGER'].map(csvField).join(',')+'\n';
+    count++;
+  });
+  if(!count){msg.innerHTML='<span class="tag warn">No '+(onlyRecognised?'recognised ':'')+'rows to export</span>';return;}
+  const suffix=onlyRecognised?'_recognised':'_all';
+  downloadBytes(new TextEncoder().encode(out),'Sage_Import_'+period.replace(/\s+/g,'_')+suffix+'.csv','text/csv');
+  document.getElementById('sageWarn').innerHTML=noAcct.length?`<div class="msg">Rows <b>${noAcct.join(', ')}</b> have no nominal code — fill in Sage or add an AccountCode column.</div>`:'<div class="msg ok">Every row has a nominal code.</div>';
+  msg.innerHTML='<span class="tag ok">'+count+' rows — '+(onlyRecognised?'recognised only':'all transactions')+'</span>';
+}
+document.getElementById('doExportSage').addEventListener('click',()=>runSageExport(false));
+document.getElementById('doExportSageRecog').addEventListener('click',()=>runSageExport(true));
+function downloadBytes(bytes,name,type){const blob=new Blob([bytes],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);}
+
+/* ---- Full-screen PDF preview ----
+   Receipt view shows the WHOLE page (fit) by default, with a Zoom toggle for
+   detail; multi-page receipts stack and scroll. Verify shows the topsheet and
+   the matched receipt side-by-side (topsheet stays put, receipt scrolls).
+   Canvases are rendered at PVSCALE for crispness; their DISPLAY size is fully
+   controlled by the #previewBody.fit / .zoom CSS rules. */
+const PVSCALE=2;
+async function paintTop(c,topIdx){
+  const tp=S.topPages[topIdx];const ctx=c.getContext('2d');
+  try{
+    if(!S.top||!S.top.doc) throw new Error('no topsheet doc');
+    const page=await S.top.doc.getPage(tp.num);
+    const vp=page.getViewport({scale:PVSCALE});
+    c.width=vp.width;c.height=vp.height;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:ctx,viewport:vp,annotationMode:2}).promise;
+  }catch(e){
+    const url=renderTopsheetCard(tp.fields,520,700);
+    await new Promise(res=>{const img=new Image();img.onload=()=>{c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);res();};img.onerror=res;img.src=url;});
+  }
+}
+async function paintRec(c,recPageIdx){
+  const rp=S.recPages.find(x=>x.i===recPageIdx);if(!rp)return;
+  const ctx=c.getContext('2d');
+  const src=S.recFiles[rp.fileIdx].doc;
+  const page=await src.doc.getPage(rp.num);
+  const vp=page.getViewport({scale:PVSCALE});
+  c.width=vp.width;c.height=vp.height;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:ctx,viewport:vp,annotationMode:2}).promise;
+}
+function pvTitle(t){document.getElementById('previewTitle').textContent=t;}
+/* Open the modal fresh: clear body, reset to fit mode, reset the Zoom label. */
+function pvOpen(){
+  const body=document.getElementById('previewBody');
+  body.innerHTML='';body.className='fit';
+  const zb=document.getElementById('zoomBtn');if(zb)zb.textContent='Zoom in';
+  const cb=document.getElementById('confirmBtn');if(cb)cb.style.display='none';
+  document.getElementById('previewModal').style.display='flex';
+  return body;
+}
+/* Stack every page of a receipt into a scroll column — read by scrolling. */
+async function renderRecStack(container,pageList){
+  for(let k=0;k<pageList.length;k++){
+    const pg=document.createElement('div');pg.className='pvpage';
+    if(pageList.length>1){const n=document.createElement('div');n.className='pvnum';n.textContent='page '+(k+1)+' of '+pageList.length;pg.appendChild(n);}
+    const c=document.createElement('canvas');
+    pg.appendChild(c);container.appendChild(pg);
+    await paintRec(c,pageList[k]);
+  }
+}
+function openPreview(which,idx){
+  const body=pvOpen();
+  const col=document.createElement('div');col.className='pvcol';body.appendChild(col);
+  if(which==='top'){
+    pvTitle('Topsheet '+(idx+1));
+    const c=document.createElement('canvas');col.appendChild(c);
+    paintTop(c,idx).catch(e=>dbg('preview failed: '+e.message));
+  }else{
+    const list=(S.recGroupOf&&S.recGroupOf[idx])?S.recGroupOf[idx].slice():[idx];
+    const rp=S.recPages.find(x=>x.i===idx);
+    pvTitle('Receipt '+((rp?rp.fileIdx:0)+1)+(list.length>1?' · '+list.length+' pages — scroll':''));
+    const scroll=document.createElement('div');scroll.className='pvscroll';col.appendChild(scroll);
+    renderRecStack(scroll,list).catch(e=>dbg('preview failed: '+e.message));
+  }
+}
+function openPairPreview(topIdx,recPageIdx){
+  const body=pvOpen();body.classList.add('pvpair');
+  const list=(S.recGroupOf&&S.recGroupOf[recPageIdx])?S.recGroupOf[recPageIdx].slice():[recPageIdx];
+  const rp=S.recPages.find(x=>x.i===recPageIdx);
+  pvTitle('Verify — Topsheet '+(topIdx+1)+'  ↔  Receipt '+((rp?rp.fileIdx:0)+1)+(list.length>1?' · '+list.length+' pages':''));
+  const left=document.createElement('div');left.className='pvcol pvtop';left.innerHTML='<div class="pvlabel">TOPSHEET</div>';
+  const tc=document.createElement('canvas');left.appendChild(tc);
+  const right=document.createElement('div');right.className='pvcol';right.innerHTML='<div class="pvlabel">MATCHED RECEIPT'+(list.length>1?' · '+list.length+' pages — scroll':'')+'</div>';
+  const scroll=document.createElement('div');scroll.className='pvscroll';right.appendChild(scroll);
+  body.appendChild(left);body.appendChild(right);
+  paintTop(tc,topIdx).catch(e=>dbg('verify view failed: '+e.message));
+  renderRecStack(scroll,list).catch(e=>dbg('verify view failed: '+e.message));
+  // Confirm / Unconfirm control for auto-matches.
+  const cb=document.getElementById('confirmBtn');
+  if(cb){
+    const src=S.matchSource[topIdx];
+    if(src==='auto'){ cb.style.display=''; cb.className='btn accent'; cb.textContent='✓ Confirm match'; cb.onclick=()=>{confirmMatch(topIdx);closePreview();}; }
+    else if(src==='confirmed'){ cb.style.display=''; cb.className='btn ghost'; cb.textContent='↩ Unconfirm'; cb.onclick=()=>{unconfirmMatch(topIdx);closePreview();}; }
+    else { cb.style.display='none'; cb.onclick=null; }
+  }
+}
+function closePreview(){document.getElementById('previewModal').style.display='none';}
+document.getElementById('zoomBtn').addEventListener('click',()=>{
+  const body=document.getElementById('previewBody');const zb=document.getElementById('zoomBtn');
+  body.classList.toggle('fit');body.classList.toggle('zoom');
+  zb.textContent=body.classList.contains('zoom')?'Fit page':'Zoom in';
+});
+document.addEventListener('keydown',e=>{if(document.getElementById('previewModal').style.display==='flex'&&e.key==='Escape')closePreview();});
+</script>
+</body>
+</html>
