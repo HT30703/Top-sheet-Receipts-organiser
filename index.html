@@ -461,7 +461,7 @@ const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchC
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-08-22y (logo + favicon; Created by Hyman; web-ready)';
+const BUILD='build 2026-09-02a (removed auto-jump to next topsheet after matching)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -1177,10 +1177,7 @@ function assignReceipt(rp,seqIdx,silent){
   dbg('ASSIGNED → topsheet '+(seqIdx+1)+' now has '+S.matches[seqIdx].length+' receipt page(s)');
   if(!silent){
     renderPairs();renderPool();renderKpis();
-    // Flow: jump to the NEXT topsheet that still needs attention (unmatched or amber).
-    let nxt=-1;
-    for(let k=1;k<=S.topPages.length;k++){const j=(seqIdx+k)%S.topPages.length;const has=S.matches[j]&&S.matches[j].length;if(!has||S.matchConf[j]==='low'){nxt=j;break;}}
-    setTimeout(()=>scrollToCard(nxt>=0?nxt:seqIdx),60);
+    // (No auto-jump: the view stays on the topsheet you just matched.)
   }
 }
 /* Mark an auto-match as human-verified → "confirmed" (conf preserved so undo is exact). */
