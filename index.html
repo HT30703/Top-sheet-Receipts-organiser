@@ -72,6 +72,11 @@ function loadFirst(urls,test,cb){
   .pilltoggle[aria-pressed=true]{border-color:var(--accent2);background:rgba(47,93,80,.10);color:var(--accent2)}
   .pilltoggle[aria-pressed=true] .knob{background:var(--accent2)}
   .pilltoggle[aria-pressed=true] .knob::after{left:18px}
+  .legendbar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12.5px;color:var(--ink);margin:0 0 12px;padding:9px 14px;background:#fbf9f3;border:1px solid var(--line);border-radius:10px}
+  .legendbar .lg{display:inline-flex;align-items:center;gap:7px;font-weight:600}
+  .legendbar i{width:12px;height:12px;border-radius:3px;flex:none}
+  .legendbar .tip{color:var(--mut);font-weight:400}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   label.fld{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
   .btn{font-family:var(--sans);font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:9px;transition:filter var(--tr),box-shadow var(--tr),background var(--tr)}
   .btn:hover{filter:brightness(1.08);box-shadow:var(--shadow)}
@@ -271,8 +276,7 @@ function loadFirst(urls,test,cb){
     </span>
     <div class="brandtext">
       <h1>Topsheet &amp; Receipt Organiser</h1>
-      <p>Reads any PDF, shows real page thumbnails, auto-matches receipts to topsheets by reading their text, and exports one print-ready PDF plus a Sage import CSV. Everything runs in your browser; nothing is uploaded.</p>
-      <p class="byline">Created by Hyman</p>
+      <p class="byline">Created by Hyman Tang</p>
     </div>
   </div>
 </header>
@@ -289,6 +293,7 @@ function loadFirst(urls,test,cb){
   <details class="guide">
     <summary>How to use this tool</summary>
     <div class="guidebody">
+      <p style="margin:10px 0 4px;color:var(--mut)">Reads any PDF, shows real page thumbnails, auto-matches receipts to topsheets by reading their text, and exports one print-ready PDF plus a Sage import CSV. Everything runs in your browser; nothing is uploaded.</p>
       <h3>Step 1 · Build sequence</h3>
       <ol>
         <li>Paste your credit card statement (whole block, headers and all) on the left — the master order.</li>
@@ -309,7 +314,7 @@ function loadFirst(urls,test,cb){
     <div class="row">
       <div class="card">
         <h2>Credit card statement</h2>
-        <p class="hint">Paste straight from your NatWest onecard statement — headers, two-date columns and all. The tool skips headers/footers/fees, uses the Tran date, and excludes refunds. This is the master order.</p>
+        <p class="hint">Paste your statement as-is. Headers, fees and refunds are ignored; this sets the master order.</p>
         <label class="fld">Statement (paste as-is)</label>
         <textarea id="stmtIn" placeholder="Post Tran Bank Your Ref Transaction Description Amount
 01 JUN 30 MAY 25058394 SAINSBURYS.CO.UK 0800 328 1700 186.81
@@ -317,8 +322,9 @@ function loadFirst(urls,test,cb){
       </div>
       <div class="card">
         <h2>AutoEntry / Sage export</h2>
-        <p class="hint">Paste your AutoEntry export (CSV or tab-separated, keep the header row). Columns used for the topsheet + Sage import:</p>
-        <table class="seq" style="margin:0 0 10px">
+        <p class="hint">Paste your AutoEntry export (CSV or tab-separated), keeping the header row.</p>
+        <details class="help"><summary>Which columns are used</summary>
+        <table class="seq" style="margin:6px 0 4px">
           <thead><tr><th>Used for</th><th>Column</th></tr></thead>
           <tbody>
             <tr><td>Payee</td><td><code class="k">SupplierDescription</code></td></tr>
@@ -331,6 +337,7 @@ function loadFirst(urls,test,cb){
             <tr><td>Invoice download link</td><td><code class="k">ImageUrl</code></td></tr>
           </tbody>
         </table>
+        </details>
         <label class="fld">Export rows (with header)</label>
         <textarea id="aeIn" placeholder="SupplierDescription,BaseCurrencyTotal,Description,AccountCode,AccountCodeDescription,Reference,InvoiceDate,ImageUrl"></textarea>
       </div>
@@ -345,14 +352,16 @@ function loadFirst(urls,test,cb){
     <!-- STEP 1b — invoice download links (replaces the Excel formula) -->
     <div class="card" id="linksCard" style="margin-top:16px">
       <h2>Invoice download links</h2>
-      <p class="hint">Builds a direct AutoEntry download link for every export row that has an <code class="k">ImageUrl</code> — no Excel formula needed. Reuses the AutoEntry data you pasted above (just include the <code class="k">ImageUrl</code> column). You must be <b>logged into AutoEntry</b> in this browser for the downloads to work.</p>
+      <p class="hint">Turns each row's <code class="k">ImageUrl</code> into a ready-to-use download link — no Excel formula. You must be <b>logged into AutoEntry</b> in this browser to download.</p>
       <div class="btnrow">
         <button class="btn go" id="genLinks">Generate download links</button>
         <span id="linksMsg" class="tag"></span>
       </div>
-      <label class="fld" style="margin-top:10px">Download URL pattern <span class="legend">— <code class="k">{id}</code> is replaced with each invoice's ID</span></label>
-      <input id="dlPattern" type="text" value="https://data.autoentry.com/download/invoice/{id}?IsDownload=true" style="width:100%">
       <div id="linksOut"></div>
+      <details class="help" style="margin-top:10px"><summary>Advanced: download URL pattern</summary>
+        <label class="fld" style="margin-top:6px">Pattern <span class="legend">— <code class="k">{id}</code> is replaced with each invoice's ID</span></label>
+        <input id="dlPattern" type="text" value="https://data.autoentry.com/download/invoice/{id}?IsDownload=true" style="width:100%">
+      </details>
     </div>
   </section>
 
@@ -367,7 +376,7 @@ function loadFirst(urls,test,cb){
       </div>
       <div class="card">
         <h2>Receipts (individual files)</h2>
-        <p class="hint">Drop <b>all your individual receipt PDFs at once</b> (select many in the file picker, or drag a multi-selection). Each file = one receipt, so multi-page receipts are handled automatically — no grouping guesswork.</p>
+        <p class="hint">Drop <b>all your receipt PDFs at once</b>. One file = one receipt; multi-page receipts stay together.</p>
         <div class="filedrop" id="dropRec"><strong>Drop receipt PDFs (select multiple)</strong><br>or click to choose several</div>
         <div id="recInfo" class="legend"></div>
       </div>
@@ -379,14 +388,22 @@ function loadFirst(urls,test,cb){
   <!-- STEP 3 -->
   <section class="panel" data-panel="3">
     <div id="progressBar"></div>
-    <div class="msg ok" style="margin:0 0 8px"><b>Green</b> = confident (receipt total matches, and the payee name or a unique amount confirms it). <b>Amber</b> = matched but worth a glance. Uncertain ones are left <b>unmatched</b> rather than guessed. Click a matched card to verify side-by-side; <b>✓ Confirm</b> locks it in. Use <b>↕ Sort to statement order</b> to arrange the print pack, then reorder any card by <b>dragging its ⠿ handle</b> (or the ▲▼ / number). Topsheets not found in the statement are tagged <b>↕ place me</b>.</div>
-    <div class="btnrow" style="margin-top:0;align-items:center">
-      <button class="btn go" id="autoMatch">Re-run auto-match</button>
-      <button class="btn ghost" id="autoMatchPos">Match 1-to-1 by order</button>
-      <button class="btn ghost" id="sortStmt">↕ Sort to statement order</button>
-      <button class="btn ghost" id="clearMatch">Clear all</button>
-      <button class="pilltoggle" id="reviewOnly" type="button" aria-pressed="false" title="Filter to only the topsheets still needing attention"><span class="knob" aria-hidden="true"></span>Show only items to review</button>
+    <div class="legendbar">
+      <span class="lg"><i style="background:#2f5d50"></i>Confident</span>
+      <span class="lg"><i style="background:#e0a72e"></i>Check it</span>
+      <span class="lg"><i style="background:#c9c2b2"></i>Needs receipt</span>
+      <span class="tip">Drag a receipt from the right onto a topsheet to fix a match · click any card to verify.</span>
     </div>
+    <div class="toolbar">
+      <button class="btn go" id="sortStmt">↕ Sort to statement order</button>
+      <button class="btn ghost" id="autoMatch">Re-run auto-match</button>
+      <button class="btn ghost" id="autoMatchPos">Match 1-to-1 by order</button>
+      <button class="btn ghost" id="clearMatch">Clear all</button>
+      <button class="pilltoggle" id="reviewOnly" type="button" aria-pressed="false" title="Show only topsheets still needing attention"><span class="knob" aria-hidden="true"></span>Show items needing review</button>
+    </div>
+    <details class="help" style="margin-top:10px"><summary>Tips &amp; what the colours mean</summary>
+      <div style="margin-top:6px"><b>Green</b> = confident (receipt total matches, and the payee name or a unique amount confirms it). <b>Amber</b> = matched but worth a glance. Uncertain ones are left <b>unmatched</b> rather than guessed. Click a matched card to verify side-by-side; <b>✓ Confirm</b> locks it in. Use <b>↕ Sort to statement order</b> to arrange the print pack, then reorder any card by <b>dragging its ⠿ handle</b> (or the ▲▼ / number). Topsheets not found in the statement are tagged <b>↕ place me</b>.</div>
+    </details>
     <div class="split" style="margin-top:14px">
       <div>
         <h2 style="font-family:var(--serif);font-size:16px;margin:0 0 8px">Sequence &amp; matched receipts</h2>
@@ -424,7 +441,7 @@ function loadFirst(urls,test,cb){
     </div>
   </section>
 
-  <div class="foot">Topsheet &amp; Receipt Organiser · Created by Hyman. PDF reading/rendering via pdf.js; lossless merge via pdf-lib. Everything runs in your browser — nothing is uploaded.</div>
+  <div class="foot">Topsheet &amp; Receipt Organiser · Created by Hyman Tang. PDF reading/rendering via pdf.js; lossless merge via pdf-lib. Everything runs in your browser — nothing is uploaded.</div>
 </main>
 <div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(28,35,33,.72);z-index:99;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)closePreview()">
   <div style="background:#fff;border-radius:12px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative">
@@ -482,7 +499,7 @@ const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchC
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-09-11b (download counts per-fire; review filter is now a toggle)';
+const BUILD='build 2026-09-11e (review switch beside Clear all, clearer label)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -1124,7 +1141,7 @@ function renderPairs(){
     }catch(e){errs++;}
   });
   if(drawn===0 && S.reviewOnly){
-    el.insertAdjacentHTML('beforeend','<div class="msg ok" style="text-align:center;padding:24px">🎉 Nothing left to review — every topsheet has a confident match. Turn off “Show only items to review” to see them all.</div>');
+    el.insertAdjacentHTML('beforeend','<div class="msg ok" style="text-align:center;padding:24px">🎉 Nothing left to review — every topsheet has a confident match. Turn off “Show items needing review” to see them all.</div>');
   }
   status.textContent=S.reviewOnly?(drawn+' item(s) needing review'):(drawn+' topsheets'+(errs?(' · '+errs+' failed to render'):''));
 }
