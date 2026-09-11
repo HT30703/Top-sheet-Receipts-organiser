@@ -65,6 +65,13 @@ function loadFirst(urls,test,cb){
   textarea{width:100%;min-height:170px;font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical;background:#fbf9f3;color:var(--ink)}
   textarea:focus,input[type=text]:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(47,93,80,.12)}
   input[type=text]{font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fbf9f3;color:var(--ink)}
+  .pilltoggle{display:inline-flex;align-items:center;gap:9px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:7px 14px 7px 10px;font:inherit;font-size:13px;font-weight:600;transition:background var(--tr),border-color var(--tr),color var(--tr)}
+  .pilltoggle:hover{border-color:var(--accent2)}
+  .pilltoggle .knob{width:34px;height:18px;border-radius:999px;background:#cfc7b5;position:relative;flex:none;transition:background var(--tr)}
+  .pilltoggle .knob::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left var(--tr)}
+  .pilltoggle[aria-pressed=true]{border-color:var(--accent2);background:rgba(47,93,80,.10);color:var(--accent2)}
+  .pilltoggle[aria-pressed=true] .knob{background:var(--accent2)}
+  .pilltoggle[aria-pressed=true] .knob::after{left:18px}
   label.fld{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
   .btn{font-family:var(--sans);font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:9px;transition:filter var(--tr),box-shadow var(--tr),background var(--tr)}
   .btn:hover{filter:brightness(1.08);box-shadow:var(--shadow)}
@@ -378,7 +385,7 @@ function loadFirst(urls,test,cb){
       <button class="btn ghost" id="autoMatchPos">Match 1-to-1 by order</button>
       <button class="btn ghost" id="sortStmt">↕ Sort to statement order</button>
       <button class="btn ghost" id="clearMatch">Clear all</button>
-      <label class="revtoggle"><input type="checkbox" id="reviewOnly"> Show only items to review</label>
+      <button class="pilltoggle" id="reviewOnly" type="button" aria-pressed="false" title="Filter to only the topsheets still needing attention"><span class="knob" aria-hidden="true"></span>Show only items to review</button>
     </div>
     <div class="split" style="margin-top:14px">
       <div>
@@ -475,7 +482,7 @@ const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchC
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-09-11a (invoice download links from ImageUrl + built-in batch downloader)';
+const BUILD='build 2026-09-11b (download counts per-fire; review filter is now a toggle)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -583,7 +590,7 @@ function resetAll(){
   ['seqResult','topInfo','recInfo','pdfMsg','expKpis','expMsg','expWarn','sageMsg','sageWarn','linksOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
   const seqMsg=document.getElementById('seqMsg'); if(seqMsg){seqMsg.className='tag';seqMsg.textContent='';}
   const lm=document.getElementById('linksMsg'); if(lm){lm.className='tag';lm.textContent='';}
-  const ro=document.getElementById('reviewOnly'); if(ro) ro.checked=false;
+  const ro=document.getElementById('reviewOnly'); if(ro) ro.setAttribute('aria-pressed','false');
   const tm=document.getElementById('toMatch'); if(tm) tm.disabled=true;
   goStep(1); window.scrollTo(0,0);
 }
@@ -650,15 +657,16 @@ function downloadAllInvoices(){
     '3) Your browser may ask to “allow multiple downloads” — click Allow.\n\n'+
     'Downloads run 5 at a time with a 3-second gap. Press OK once you are logged in and happy with the folder.');
   if(!ok)return;
-  const prog=document.getElementById('dlProg'); const BATCH=5, GAP=3000; let done=0;
-  const fire=url=>{const f=document.createElement('iframe');f.style.display='none';f.src=url;document.body.appendChild(f);setTimeout(()=>{if(f.parentNode)f.remove();},20000);};
+  const prog=document.getElementById('dlProg'); const BATCH=5, GAP=3000; let triggered=0;
+  const fire=url=>{
+    const f=document.createElement('iframe');f.style.display='none';f.src=url;document.body.appendChild(f);setTimeout(()=>{if(f.parentNode)f.remove();},20000);
+    triggered++;                                                 // count AFTER this one has fired
+    if(prog){prog.className='tag ok';prog.textContent=(triggered<links.length)?('Downloaded '+triggered+' / '+links.length+'…'):('Done — '+links.length+' download'+(links.length===1?'':'s')+' triggered');}
+  };
   const runBatch=start=>{
     const slice=links.slice(start,start+BATCH);
     slice.forEach((url,k)=>setTimeout(()=>fire(url),k*250));      // small stagger inside the batch
-    done=Math.min(links.length,start+slice.length);
-    if(prog){prog.className='tag ok';prog.textContent='Downloading '+done+' / '+links.length+'…';}
     if(start+BATCH<links.length) setTimeout(()=>runBatch(start+BATCH),GAP);
-    else if(prog) setTimeout(()=>{if(document.getElementById('dlProg'))prog.textContent='Done — '+links.length+' download'+(links.length===1?'':'s')+' triggered';},GAP);
   };
   runBatch(0);
 }
@@ -1116,7 +1124,7 @@ function renderPairs(){
     }catch(e){errs++;}
   });
   if(drawn===0 && S.reviewOnly){
-    el.insertAdjacentHTML('beforeend','<div class="msg ok" style="text-align:center;padding:24px">🎉 Nothing left to review — every topsheet has a confident match. Untick “Show only items to review” to see them all.</div>');
+    el.insertAdjacentHTML('beforeend','<div class="msg ok" style="text-align:center;padding:24px">🎉 Nothing left to review — every topsheet has a confident match. Turn off “Show only items to review” to see them all.</div>');
   }
   status.textContent=S.reviewOnly?(drawn+' item(s) needing review'):(drawn+' topsheets'+(errs?(' · '+errs+' failed to render'):''));
 }
@@ -1406,7 +1414,7 @@ document.getElementById('clearMatch').addEventListener('click',()=>{
   if(!confirm(warn))return;
   S.topPages.forEach((_,i)=>S.matches[i]=[]);S.recPages.forEach(r=>r.assignedTo=null);S.matchConf={};S.matchSource={};renderPairs();renderPool();renderKpis();
 });
-document.getElementById('reviewOnly').addEventListener('change',e=>{S.reviewOnly=e.target.checked;renderPairs();renderKpis();});
+document.getElementById('reviewOnly').addEventListener('click',e=>{const b=e.currentTarget;S.reviewOnly=!S.reviewOnly;b.setAttribute('aria-pressed',S.reviewOnly?'true':'false');renderPairs();renderKpis();});
 document.getElementById('toExport').addEventListener('click',()=>{buildExportUI();goStep(4);});
 
 /* ---- Step 4 export (pdf-lib lossless merge) ---- */
