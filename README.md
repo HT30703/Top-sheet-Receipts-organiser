@@ -4,7 +4,7 @@
 
 # Topsheet & Receipt Organiser
 
-_Created by Hyman._
+_Created by Hyman Tang._
 
 A single-page tool for assembling a credit-card payment pack: it reads your
 statement and your AutoEntry export, matches each receipt PDF to the right
@@ -37,9 +37,24 @@ https://<your-username>.github.io/<repo-name>/
    - `AccountCodeDescription` — department
    - `Reference` — payment requested by
    - `InvoiceDate` — date
-3. Click **Order export to statement**. Amounts are auto-corrected against
-   AutoEntry, and you get one ordered sequence table. Orange rows are statement
-   lines with no clean AutoEntry match.
+   - `ImageUrl` — source invoice link (used to build download links; see below)
+3. It builds automatically once both boxes are filled (or press **Build ordered
+   sequence**). Amounts are auto-corrected against AutoEntry, and you get one
+   ordered sequence table. Orange rows are statement lines with no clean AutoEntry
+   match.
+
+### Step 1b — Invoice download links (optional)
+Replaces the Excel formula that turns each `ImageUrl` into a download link. It runs
+automatically when your export includes an `ImageUrl` column (or press
+**Generate download links**). For every row it pulls the invoice ID out of
+`ImageUrl` and builds `…/download/invoice/{id}?IsDownload=true`, shown next to the
+supplier and amount so you can eyeball them. Then either **Copy all links** (one
+per line) into your batch URL-opener extension, or click **⬇ Download receipts /
+invoices** to fetch them here — 5 at a time with a 3-second gap. You must be
+**logged into AutoEntry** in the same browser, and files save to your browser's
+default download location. The download URL pattern is an editable field (under
+"Advanced"), so if AutoEntry ever changes its scheme you can adjust it without
+touching the code.
 
 ### Step 2 — Load PDFs
 1. Drop your **topsheets PDF** (one topsheet per page).
@@ -74,6 +89,17 @@ https://<your-username>.github.io/<repo-name>/
 Use **↺ Start over (new month)** on Step 1 to clear the statement, the loaded
 PDFs, and all matches for a fresh run.
 
+## Publishing to GitHub Pages
+
+1. Create a new **public** repository on GitHub.
+2. **Add file → Upload files** and upload `index.html` (and this `README.md`).
+3. **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
+   branch **main**, folder **/ (root)**, then **Save**.
+4. Wait ~1 minute; the site goes live at the URL shown on that Pages screen.
+
+To update later, upload a new `index.html` over the old one and commit — the site
+refreshes automatically.
+
 ## Privacy
 
 The repository (code) is public, but it contains only the tool. It stores nothing
@@ -89,7 +115,7 @@ repo — the app doesn't need them stored anywhere.
 
 ## License
 
-Copyright © 2026 Hyman. You're free to use, copy, modify, and share this tool —
+Copyright © 2026 Hyman Tang. You're free to use, copy, modify, and share this tool —
 including inside a business — but you may **not sell it or charge for it** (or any
 modified version) without the author's written permission. Keep the credit line
 intact. See [`LICENSE`](LICENSE) for the full terms.
