@@ -314,7 +314,7 @@ function loadFirst(urls,test,cb){
     <div class="row">
       <div class="card">
         <h2>Credit card statement</h2>
-        <p class="hint">Paste your statement as-is. Headers, fees and refunds are ignored; this sets the master order.</p>
+        <details class="help"><summary>Tips</summary><p style="margin:6px 0 0">Paste your statement as-is — headers, fees and refunds are ignored; this sets the master order. The sequence builds automatically once both boxes are filled (press <b>Build ordered sequence</b> to re-run).</p></details>
         <label class="fld">Statement (paste as-is)</label>
         <textarea id="stmtIn" placeholder="Post Tran Bank Your Ref Transaction Description Amount
 01 JUN 30 MAY 25058394 SAINSBURYS.CO.UK 0800 328 1700 186.81
@@ -322,8 +322,8 @@ function loadFirst(urls,test,cb){
       </div>
       <div class="card">
         <h2>AutoEntry / Sage export</h2>
-        <p class="hint">Paste your AutoEntry export (CSV or tab-separated), keeping the header row.</p>
-        <details class="help"><summary>Which columns are used</summary>
+        <details class="help"><summary>Tips — columns used</summary>
+        <p style="margin:6px 0 4px">Paste your export (CSV or tab-separated), keeping the header row.</p>
         <table class="seq" style="margin:6px 0 4px">
           <thead><tr><th>Used for</th><th>Column</th></tr></thead>
           <tbody>
@@ -343,7 +343,7 @@ function loadFirst(urls,test,cb){
       </div>
     </div>
     <div class="btnrow">
-      <button class="btn go" id="buildSeq">Order export to statement</button>
+      <button class="btn go" id="buildSeq">Build ordered sequence</button>
       <span id="seqMsg" class="tag"></span>
       <button class="btn ghost" id="restartAll" style="margin-left:auto">↺ Start over (new month)</button>
     </div>
@@ -352,7 +352,7 @@ function loadFirst(urls,test,cb){
     <!-- STEP 1b — invoice download links (replaces the Excel formula) -->
     <div class="card" id="linksCard" style="margin-top:16px">
       <h2>Invoice download links</h2>
-      <p class="hint">Turns each row's <code class="k">ImageUrl</code> into a ready-to-use download link — no Excel formula. You must be <b>logged into AutoEntry</b> in this browser to download.</p>
+      <details class="help"><summary>Tips</summary><p style="margin:6px 0 0">Turns each <code class="k">ImageUrl</code> into a download link — generates automatically. You must be <b>logged into AutoEntry</b> to download.</p></details>
       <div class="btnrow">
         <button class="btn go" id="genLinks">Generate download links</button>
         <span id="linksMsg" class="tag"></span>
@@ -370,13 +370,13 @@ function loadFirst(urls,test,cb){
     <div class="row">
       <div class="card">
         <h2>Topsheets PDF</h2>
-        <p class="hint">The mail-merged topsheet document, one topsheet per page.</p>
+        <details class="help"><summary>Tips</summary><p style="margin:6px 0 0">The mail-merged topsheet document, one topsheet per page.</p></details>
         <div class="filedrop" id="dropTop"><strong>Drop topsheets PDF</strong><br>or click to choose</div>
         <div id="topInfo" class="legend"></div>
       </div>
       <div class="card">
         <h2>Receipts (individual files)</h2>
-        <p class="hint">Drop <b>all your receipt PDFs at once</b>. One file = one receipt; multi-page receipts stay together.</p>
+        <details class="help"><summary>Tips</summary><p style="margin:6px 0 0">Drop <b>all your receipt PDFs at once</b>. One file = one receipt; multi-page receipts stay together.</p></details>
         <div class="filedrop" id="dropRec"><strong>Drop receipt PDFs (select multiple)</strong><br>or click to choose several</div>
         <div id="recInfo" class="legend"></div>
       </div>
@@ -392,7 +392,6 @@ function loadFirst(urls,test,cb){
       <span class="lg"><i style="background:#2f5d50"></i>Confident</span>
       <span class="lg"><i style="background:#e0a72e"></i>Check it</span>
       <span class="lg"><i style="background:#c9c2b2"></i>Needs receipt</span>
-      <span class="tip">Drag a receipt from the right onto a topsheet to fix a match · click any card to verify.</span>
     </div>
     <div class="toolbar">
       <button class="btn go" id="sortStmt">↕ Sort to statement order</button>
@@ -421,14 +420,17 @@ function loadFirst(urls,test,cb){
   <section class="panel" data-panel="4">
     <div class="card">
       <h2>Export print-ready PDF</h2>
-      <p class="hint">One PDF: each topsheet followed by its matched receipt page(s), in sequence order. Original pages copied losslessly.</p>
+      <details class="help"><summary>Tips</summary><p style="margin:6px 0 0">Each topsheet followed by its matched receipt page(s), in order.</p></details>
       <div class="kpis" id="expKpis"></div>
       <div class="btnrow"><button class="btn go" id="doExport">Build &amp; download merged PDF</button><span id="expMsg"></span></div>
       <div id="expWarn"></div>
     </div>
     <div class="card" style="margin-top:18px">
       <h2>Export Sage import CSV</h2>
-      <p class="hint">Your AutoEntry data re-sequenced to the statement in the Sage journal layout: <code class="k">VP,1107,&lt;nominal&gt;,0,&lt;date&gt;,&lt;period&gt;,&lt;Payee - Description&gt;,&lt;amount&gt;,T9,0,1,,MANAGER</code>.</p>
+      <details class="help"><summary>Tips</summary>
+        <p style="margin:6px 0 0">Your export re-sequenced into the Sage journal format. <b>All transactions</b> = every statement line. <b>Recognised only</b> = matched rows only (no red).</p>
+        <p style="margin:6px 0 0"><code class="k">VP,1107,&lt;nominal&gt;,0,&lt;date&gt;,&lt;period&gt;,&lt;Payee - Description&gt;,&lt;amount&gt;,T9,0,1,,MANAGER</code></p>
+      </details>
       <label class="fld">Credit-card period label</label>
       <input id="ccPeriod" type="text" value="CC Jul 26" style="width:180px">
       <div class="btnrow">
@@ -436,7 +438,6 @@ function loadFirst(urls,test,cb){
         <button class="btn ghost" id="doExportSageRecog">Download — recognised only</button>
         <span id="sageMsg"></span>
       </div>
-      <p class="hint" style="margin-top:8px"><b>All transactions</b> = every line on the statement. <b>Recognised only</b> = every line the sequence builder matched to your AutoEntry export, i.e. all rows except the red/unmatched ones.</p>
       <div id="sageWarn"></div>
     </div>
   </section>
@@ -499,7 +500,7 @@ const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchC
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-09-11e (review switch beside Clear all, clearer label)';
+const BUILD='build 2026-09-11h (card explanations folded into Tips dropdowns)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -688,6 +689,25 @@ function downloadAllInvoices(){
   runBatch(0);
 }
 document.getElementById('genLinks').addEventListener('click',renderInvoiceLinks);
+
+/* Auto-run Step 1: once BOTH the statement and the export are pasted, build the
+   sequence and (if an ImageUrl column is present) the download links — debounced
+   so it fires after you stop typing/pasting, not on every keystroke. The manual
+   buttons still work for a forced re-run if something changed or didn't fire. */
+let _autoStep1=null;
+function scheduleStep1Auto(){
+  clearTimeout(_autoStep1);
+  _autoStep1=setTimeout(()=>{
+    const s=(document.getElementById('stmtIn').value||'').trim();
+    const a=(document.getElementById('aeIn').value||'').trim();
+    if(!s||!a) return;                                             // need both boxes
+    if(a.split(/\r?\n/).filter(x=>x.trim()).length<2) return;      // export needs header + a row
+    document.getElementById('buildSeq').click();                   // reuse the exact manual path
+    try{ const tbl=parseTable(a); if(guessCols(tbl.header).imageurl>=0) renderInvoiceLinks(); }catch(e){}
+  }, 700);
+}
+document.getElementById('stmtIn').addEventListener('input',scheduleStep1Auto);
+document.getElementById('aeIn').addEventListener('input',scheduleStep1Auto);
 /* One combined Step-1 panel: the ordered sequence table (the master order that
    drives the PDF + CSV) plus the parse summary, with the corrections notice, the
    skipped statement lines, and the unused export rows tucked into collapsibles so
