@@ -321,10 +321,11 @@ function loadFirst(urls,test,cb){
             <tr><td>Nominal code (Sage)</td><td><code class="k">AccountCode</code></td></tr>
             <tr><td>Payment requested by</td><td><code class="k">Reference</code></td></tr>
             <tr><td>Date</td><td><code class="k">InvoiceDate</code></td></tr>
+            <tr><td>Invoice download link</td><td><code class="k">ImageUrl</code></td></tr>
           </tbody>
         </table>
         <label class="fld">Export rows (with header)</label>
-        <textarea id="aeIn" placeholder="SupplierDescription,BaseCurrencyTotal,Description,AccountCode,AccountCodeDescription,Reference,InvoiceDate"></textarea>
+        <textarea id="aeIn" placeholder="SupplierDescription,BaseCurrencyTotal,Description,AccountCode,AccountCodeDescription,Reference,InvoiceDate,ImageUrl"></textarea>
       </div>
     </div>
     <div class="btnrow">
@@ -333,6 +334,19 @@ function loadFirst(urls,test,cb){
       <button class="btn ghost" id="restartAll" style="margin-left:auto">↺ Start over (new month)</button>
     </div>
     <div id="seqResult"></div>
+
+    <!-- STEP 1b — invoice download links (replaces the Excel formula) -->
+    <div class="card" id="linksCard" style="margin-top:16px">
+      <h2>Invoice download links</h2>
+      <p class="hint">Builds a direct AutoEntry download link for every export row that has an <code class="k">ImageUrl</code> — no Excel formula needed. Reuses the AutoEntry data you pasted above (just include the <code class="k">ImageUrl</code> column). You must be <b>logged into AutoEntry</b> in this browser for the downloads to work.</p>
+      <div class="btnrow">
+        <button class="btn go" id="genLinks">Generate download links</button>
+        <span id="linksMsg" class="tag"></span>
+      </div>
+      <label class="fld" style="margin-top:10px">Download URL pattern <span class="legend">— <code class="k">{id}</code> is replaced with each invoice's ID</span></label>
+      <input id="dlPattern" type="text" value="https://data.autoentry.com/download/invoice/{id}?IsDownload=true" style="width:100%">
+      <div id="linksOut"></div>
+    </div>
   </section>
 
   <!-- STEP 2 -->
@@ -461,7 +475,7 @@ const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchC
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-09-02a (removed auto-jump to next topsheet after matching)';
+const BUILD='build 2026-09-11a (invoice download links from ImageUrl + built-in batch downloader)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -529,7 +543,7 @@ function parseTable(text){
 function guessCols(header){
   const h=header.map(x=>x.toLowerCase().replace(/[^a-z0-9]/g,''));const ex={};
   const find=(k,exact,...fb)=>{let i=h.indexOf(exact.toLowerCase().replace(/[^a-z0-9]/g,''));if(i>=0){ex[k]=true;return i;}ex[k]=false;for(const f of fb){const ff=f.toLowerCase().replace(/[^a-z0-9]/g,'');const j=h.findIndex(x=>x.includes(ff));if(j>=0)return j;}return -1;};
-  const col={payee:find('payee','SupplierDescription','ContactCode','supplierdescription','contactname','contact','payee','supplier','name'),amount:find('amount','BaseCurrencyTotal','total','amount','net','gross'),desc:find('desc','Description','memo','narr'),dept:find('dept','AccountCodeDescription','department','nominal'),acct:find('acct','AccountCode','nominalcode','nominal'),reqby:find('reqby','Reference','requestedby','requester','ref'),date:find('date','InvoiceDate','date')};
+  const col={payee:find('payee','SupplierDescription','ContactCode','supplierdescription','contactname','contact','payee','supplier','name'),amount:find('amount','BaseCurrencyTotal','total','amount','net','gross'),desc:find('desc','Description','memo','narr'),dept:find('dept','AccountCodeDescription','department','nominal'),acct:find('acct','AccountCode','nominalcode','nominal'),reqby:find('reqby','Reference','requestedby','requester','ref'),date:find('date','InvoiceDate','date'),imageurl:find('imageurl','ImageUrl','imageurl','image')};
   col._exact=ex;return col;
 }
 
@@ -564,15 +578,91 @@ function resetAll(){
   S.recFiles=[]; S.recPages=[]; S.recGroups=[]; S.recGroupOf={};
   S.matches={}; S.matchConf={}; S.matchSource={};
   S.order=null; S.unplaced=new Set(); S.reviewOnly=false;
-  S.pickedRp=null; S.dragRp=null; S.dragTopPos=null; S._autoAdvanced=false;
+  S.pickedRp=null; S.dragRp=null; S.dragTopPos=null; S._autoAdvanced=false; S._links=[];
   ['stmtIn','aeIn'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  ['seqResult','topInfo','recInfo','pdfMsg','expKpis','expMsg','expWarn','sageMsg','sageWarn'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['seqResult','topInfo','recInfo','pdfMsg','expKpis','expMsg','expWarn','sageMsg','sageWarn','linksOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
   const seqMsg=document.getElementById('seqMsg'); if(seqMsg){seqMsg.className='tag';seqMsg.textContent='';}
+  const lm=document.getElementById('linksMsg'); if(lm){lm.className='tag';lm.textContent='';}
   const ro=document.getElementById('reviewOnly'); if(ro) ro.checked=false;
   const tm=document.getElementById('toMatch'); if(tm) tm.disabled=true;
   goStep(1); window.scrollTo(0,0);
 }
 document.getElementById('restartAll').addEventListener('click',resetAll);
+
+/* ---- Invoice download links (Step 1b) ----
+   Reproduces the two Excel formulas: pull each invoice's ID out of the ImageUrl
+   column, then build the AutoEntry download URL. All pure string work from the
+   pasted export — no network calls to generate the links, no login needed until
+   you actually download. */
+function collectInvoiceLinks(){
+  const tbl=parseTable(document.getElementById('aeIn').value||'');
+  if(!tbl.rows.length) return {error:'No export rows found. Paste your AutoEntry export above, including the ImageUrl column.'};
+  const col=guessCols(tbl.header);
+  if(col.imageurl<0) return {error:'No ImageUrl column found. Add the ImageUrl column to your AutoEntry export and paste it again.'};
+  const pat=(document.getElementById('dlPattern').value||'').trim()||'https://data.autoentry.com/download/invoice/{id}?IsDownload=true';
+  const rows=[]; let noId=0;
+  tbl.rows.forEach((r,i)=>{
+    const raw=(r[col.imageurl]||'').trim(); if(!raw) return;               // no image on this row → no link
+    let id=''; const m=raw.match(/[?&]id=([^&\s]+)/i);
+    if(m) id=decodeURIComponent(m[1]);                                     // preferred: the Id= query param
+    else if(!/^https?:/i.test(raw)) id=raw;                                // already a bare id
+    else { const seg=raw.split(/[\/?#]/).filter(Boolean).pop(); if(seg) id=seg; } // last-ditch: last URL segment
+    if(!id){noId++;return;}
+    rows.push({i,id,url:pat.replace('{id}',id),payee:col.payee>=0?(r[col.payee]||''):'',amount:col.amount>=0?(r[col.amount]||''):''});
+  });
+  return {rows,noId,total:tbl.rows.length};
+}
+function renderInvoiceLinks(){
+  const out=document.getElementById('linksOut'), msg=document.getElementById('linksMsg');
+  const res=collectInvoiceLinks();
+  if(res.error){msg.className='tag bad';msg.textContent='—';out.innerHTML='<div class="msg err" style="margin-top:10px">'+esc(res.error)+'</div>';S._links=[];return;}
+  S._links=res.rows;
+  if(!res.rows.length){msg.className='tag warn';msg.textContent='0 links';out.innerHTML='<div class="msg" style="margin-top:10px">No rows had a usable ImageUrl.</div>';return;}
+  msg.className='tag ok';msg.textContent=res.rows.length+' link'+(res.rows.length===1?'':'s')+(res.noId?(' · '+res.noId+' row(s) skipped (no ID)'):'');
+  const list=res.rows.map(r=>r.url).join('\n');
+  let h='<div class="btnrow" style="margin-top:12px">'
+    +'<button class="btn go" id="dlAll">⬇ Download receipts / invoices</button>'
+    +'<button class="btn ghost" id="copyLinks">Copy all links</button>'
+    +'<span id="dlProg" class="tag"></span></div>'
+    +'<p class="hint" style="margin-top:8px">Paste the list below into your batch URL-opener extension, or use <b>Download receipts / invoices</b> to fetch them here (5 at a time, 3-second gaps).</p>'
+    +'<label class="fld" style="margin-top:6px">All download links (one per line)</label>'
+    +'<textarea id="linksBox" style="min-height:120px" readonly>'+esc(list)+'</textarea>'
+    +'<table class="seq" style="margin-top:12px"><thead><tr><th>#</th><th>Supplier</th><th style="text-align:right">Amount</th><th>Link</th></tr></thead><tbody>';
+  res.rows.forEach((r,n)=>{h+='<tr><td class="num">'+(n+1)+'</td><td>'+esc(r.payee)+'</td><td class="amt">'+esc(r.amount)+'</td><td><a href="'+esc(r.url)+'" target="_blank" rel="noopener">open</a></td></tr>';});
+  out.innerHTML=h+'</tbody></table>';
+  document.getElementById('copyLinks').addEventListener('click',()=>{
+    const b=document.getElementById('copyLinks');
+    const done=()=>{b.textContent='Copied ✓';setTimeout(()=>{if(document.getElementById('copyLinks'))b.textContent='Copy all links';},1500);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(list).then(done).catch(()=>{const t=document.getElementById('linksBox');t.select();try{document.execCommand('copy');}catch(e){}done();});}
+    else{const t=document.getElementById('linksBox');t.select();try{document.execCommand('copy');}catch(e){}done();}
+  });
+  document.getElementById('dlAll').addEventListener('click',downloadAllInvoices);
+}
+/* Batch download: hidden iframe per link (AutoEntry serves them as attachments,
+   so the iframe downloads without navigating the tool away). 5 per batch, 3s gap. */
+function downloadAllInvoices(){
+  const links=(S._links||[]).map(r=>r.url);
+  if(!links.length){alert('Generate the links first.');return;}
+  const ok=confirm(
+    'Download '+links.length+' invoice'+(links.length===1?'':'s')+' from AutoEntry?\n\n'+
+    '1) Are you LOGGED IN to AutoEntry in this browser? If not, press Cancel and log in first — otherwise the files will just be login pages.\n\n'+
+    '2) Where do they save? Files go to your browser’s default Downloads folder. To choose a folder, set it in your browser settings first, or turn on “Ask where to save each file before downloading”.\n\n'+
+    '3) Your browser may ask to “allow multiple downloads” — click Allow.\n\n'+
+    'Downloads run 5 at a time with a 3-second gap. Press OK once you are logged in and happy with the folder.');
+  if(!ok)return;
+  const prog=document.getElementById('dlProg'); const BATCH=5, GAP=3000; let done=0;
+  const fire=url=>{const f=document.createElement('iframe');f.style.display='none';f.src=url;document.body.appendChild(f);setTimeout(()=>{if(f.parentNode)f.remove();},20000);};
+  const runBatch=start=>{
+    const slice=links.slice(start,start+BATCH);
+    slice.forEach((url,k)=>setTimeout(()=>fire(url),k*250));      // small stagger inside the batch
+    done=Math.min(links.length,start+slice.length);
+    if(prog){prog.className='tag ok';prog.textContent='Downloading '+done+' / '+links.length+'…';}
+    if(start+BATCH<links.length) setTimeout(()=>runBatch(start+BATCH),GAP);
+    else if(prog) setTimeout(()=>{if(document.getElementById('dlProg'))prog.textContent='Done — '+links.length+' download'+(links.length===1?'':'s')+' triggered';},GAP);
+  };
+  runBatch(0);
+}
+document.getElementById('genLinks').addEventListener('click',renderInvoiceLinks);
 /* One combined Step-1 panel: the ordered sequence table (the master order that
    drives the PDF + CSV) plus the parse summary, with the corrections notice, the
    skipped statement lines, and the unused export rows tucked into collapsibles so
