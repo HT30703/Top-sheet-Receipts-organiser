@@ -499,7 +499,7 @@ const S={sequence:[],aeRows:[],top:null,rec:null,topPages:[],recPages:[],matches
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-09-16b (export filenames use spaces, no underscores)';
+const BUILD='build 2026-09-16d (FX fallback tolerance tightened to £1 / 0.5%)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -583,9 +583,25 @@ document.getElementById('buildSeq').addEventListener('click',()=>{
   const seq=[],corr=[],aeOrder=[];
   stmt.forEach(st=>{
     const tryA=[st.amount,...(st.allAmounts||[])].filter((v,i,a)=>v!=null&&v>0&&a.indexOf(v)===i);
-    let pick=null,used=st.amount;
+    let pick=null,used=st.amount,fx=false;
     for(const amt of tryA){const c=ae.filter(r=>!r.used&&Math.abs(r.amount-amt)<0.005);if(!c.length)continue;if(c.length>1)c.sort((a,b)=>{const pa=payeeScore(a.payee,st.desc),pb=payeeScore(b.payee,st.desc);if(pb!==pa)return pb-pa;return Math.abs(dateKey(a.date)-dateKey(st.date))-Math.abs(dateKey(b.date)-dateKey(st.date));});pick=c[0];used=amt;break;}
-    if(pick){pick.used=true;aeOrder.push(pick);if(Math.abs(used-st.amount)>0.005)corr.push({desc:pick.payee||st.desc,from:st.amount,to:used});seq.push({idx:seq.length+1,payee:pick.payee||st.desc,amount:used,date:pick.date||st.date,desc:pick.desc||st.desc,dept:pick.dept||'',acct:pick.acct||'',reqby:pick.reqby||'',matched:true});}
+    if(!pick){
+      // Foreign-currency / rounding fallback: no exact-amount match, so pair this
+      // statement line with the unused AutoEntry item whose PAYEE name overlaps and
+      // whose amount is closest (within a small tolerance). Catches FX charges where
+      // the bank's GBP and AutoEntry's GBP differ by a penny or two.
+      const stoks=payeeTokens(st.desc);
+      if(stoks.length){
+        let best=null,bestDiff=Infinity;
+        ae.forEach(r=>{if(r.used)return;const rtoks=payeeTokens(r.payee);if(!stoks.some(t=>rtoks.includes(t)))return;const d=Math.abs(r.amount-st.amount);if(d<bestDiff){bestDiff=d;best=r;}});
+        if(best && bestDiff<=Math.max(1,st.amount*0.005)){pick=best;fx=true;}
+      }
+    }
+    if(pick){
+      pick.used=true;aeOrder.push(pick);
+      if(!fx && Math.abs(used-st.amount)>0.005)corr.push({desc:pick.payee||st.desc,from:st.amount,to:used});
+      seq.push({idx:seq.length+1,payee:pick.payee||st.desc,amount:fx?pick.amount:used,date:pick.date||st.date,desc:pick.desc||st.desc,dept:pick.dept||'',acct:pick.acct||'',reqby:pick.reqby||'',matched:true});
+    }
     else seq.push({idx:seq.length+1,payee:st.desc,amount:st.amount,date:st.date,desc:st.desc,dept:'',acct:'',reqby:'',matched:false});
   });
   const leftover=ae.filter(r=>!r.used);S.sequence=seq;
