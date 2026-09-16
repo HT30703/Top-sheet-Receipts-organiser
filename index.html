@@ -428,14 +428,13 @@ function loadFirst(urls,test,cb){
     <div class="card" style="margin-top:18px">
       <h2>Export Sage import CSV</h2>
       <details class="help"><summary>Tips</summary>
-        <p style="margin:6px 0 0">Your export re-sequenced into the Sage journal format. <b>All transactions</b> = every statement line. <b>Recognised only</b> = matched rows only (no red).</p>
+        <p style="margin:6px 0 0">One row per AutoEntry item you pasted (ordered to the statement where matched), each with its own nominal code. The row count matches your AutoEntry export.</p>
         <p style="margin:6px 0 0"><code class="k">VP,1107,&lt;nominal&gt;,0,&lt;date&gt;,&lt;period&gt;,&lt;Payee - Description&gt;,&lt;amount&gt;,T9,0,1,,MANAGER</code></p>
       </details>
       <label class="fld">Credit-card period label</label>
       <input id="ccPeriod" type="text" value="CC Jul 26" style="width:180px">
       <div class="btnrow">
-        <button class="btn go" id="doExportSage">Download — all transactions</button>
-        <button class="btn ghost" id="doExportSageRecog">Download — recognised only</button>
+        <button class="btn go" id="doExportSage">Download Sage import CSV</button>
         <span id="sageMsg"></span>
       </div>
       <div id="sageWarn"></div>
@@ -494,13 +493,13 @@ window.addEventListener('load',()=>{
   });
 });
 
-const S={sequence:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchConf:{},matchSource:{},order:null,unplaced:new Set(),reviewOnly:false,pickedRp:null,dragRp:null,dragTopPos:null};
+const S={sequence:[],aeRows:[],top:null,rec:null,topPages:[],recPages:[],matches:{},matchConf:{},matchSource:{},order:null,unplaced:new Set(),reviewOnly:false,pickedRp:null,dragRp:null,dragTopPos:null};
 /* On-screen debug line for the match screen (drag/click events show here). */
 /* dbg() is a no-op in the shipped build (diagnostics removed). Kept as a stub so
    the scattered dbg(...) calls remain harmless. */
 function dbg(){}
 /* Surface any JS error on screen (no console needed) + a build stamp. */
-const BUILD='build 2026-09-11h (card explanations folded into Tips dropdowns)';
+const BUILD='build 2026-09-16b (export filenames use spaces, no underscores)';
 window.addEventListener('error',e=>{try{const w=document.getElementById('libWarn');if(w){w.style.display='block';w.innerHTML='Script error: '+esc(e.message)+' — at '+esc((e.filename||'').split('/').pop())+':'+e.lineno+'. Tell me this message and I will fix it.';}}catch(_){}});
 window.addEventListener('DOMContentLoaded',()=>{
   const f=document.querySelector('.foot');if(f)f.innerHTML+=' · '+BUILD;
@@ -581,15 +580,19 @@ document.getElementById('buildSeq').addEventListener('click',()=>{
   const col=guessCols(tbl.header);
   if(col.amount<0){msg.className='tag bad';msg.textContent='Missing BaseCurrencyTotal (amount) column';return;}
   const ae=tbl.rows.map((r,i)=>({i,payee:col.payee>=0?r[col.payee]||'':'',amount:parseAmount((r[col.amount]||'').toString())??parseFloat((r[col.amount]||'').replace(/[^0-9.\-]/g,'')),date:col.date>=0?parseDate(r[col.date]||''):null,desc:col.desc>=0?r[col.desc]||'':'',dept:col.dept>=0?r[col.dept]||'':'',acct:col.acct>=0?(r[col.acct]||'').trim():'',reqby:col.reqby>=0?r[col.reqby]||'':'',used:false})).filter(r=>!isNaN(r.amount));
-  const seq=[],corr=[];
+  const seq=[],corr=[],aeOrder=[];
   stmt.forEach(st=>{
     const tryA=[st.amount,...(st.allAmounts||[])].filter((v,i,a)=>v!=null&&v>0&&a.indexOf(v)===i);
     let pick=null,used=st.amount;
     for(const amt of tryA){const c=ae.filter(r=>!r.used&&Math.abs(r.amount-amt)<0.005);if(!c.length)continue;if(c.length>1)c.sort((a,b)=>{const pa=payeeScore(a.payee,st.desc),pb=payeeScore(b.payee,st.desc);if(pb!==pa)return pb-pa;return Math.abs(dateKey(a.date)-dateKey(st.date))-Math.abs(dateKey(b.date)-dateKey(st.date));});pick=c[0];used=amt;break;}
-    if(pick){pick.used=true;if(Math.abs(used-st.amount)>0.005)corr.push({desc:pick.payee||st.desc,from:st.amount,to:used});seq.push({idx:seq.length+1,payee:pick.payee||st.desc,amount:used,date:pick.date||st.date,desc:pick.desc||st.desc,dept:pick.dept||'',acct:pick.acct||'',reqby:pick.reqby||'',matched:true});}
+    if(pick){pick.used=true;aeOrder.push(pick);if(Math.abs(used-st.amount)>0.005)corr.push({desc:pick.payee||st.desc,from:st.amount,to:used});seq.push({idx:seq.length+1,payee:pick.payee||st.desc,amount:used,date:pick.date||st.date,desc:pick.desc||st.desc,dept:pick.dept||'',acct:pick.acct||'',reqby:pick.reqby||'',matched:true});}
     else seq.push({idx:seq.length+1,payee:st.desc,amount:st.amount,date:st.date,desc:st.desc,dept:'',acct:'',reqby:'',matched:false});
   });
   const leftover=ae.filter(r=>!r.used);S.sequence=seq;
+  // Sage export is driven by the AutoEntry data (the items you actually have), NOT
+  // the statement — so every AutoEntry row is exported with its own nominal code,
+  // ordered by the statement where matched and any unmatched appended after.
+  S.aeRows=aeOrder.concat(leftover);
   document.getElementById('seqResult').innerHTML=renderSequence(sd.diag,seq,leftover,corr);
   document.getElementById('seqNext').addEventListener('click',()=>goStep(2));
   msg.className='tag ok';msg.textContent=`${seq.length} in sequence · ${seq.filter(s=>!s.matched).length} review · ${leftover.length} unused`;
@@ -599,7 +602,7 @@ document.getElementById('buildSeq').addEventListener('click',()=>{
    month's work by accident. */
 function resetAll(){
   if(!confirm('Start over for a new month?\n\nThis clears the pasted statement and export, the loaded topsheet & receipt PDFs, and ALL matches (including confirmed ones). This cannot be undone.'))return;
-  S.sequence=[]; S.top=null; S.topBytes=null; S.topPages=[];
+  S.sequence=[]; S.aeRows=[]; S.top=null; S.topBytes=null; S.topPages=[];
   S.recFiles=[]; S.recPages=[]; S.recGroups=[]; S.recGroupOf={};
   S.matches={}; S.matchConf={}; S.matchSource={};
   S.order=null; S.unplaced=new Set(); S.reviewOnly=false;
@@ -1482,34 +1485,30 @@ document.getElementById('doExport').addEventListener('click',async()=>{
       }
     }
     const bytes=await out.save();
-    downloadBytes(bytes,'Topsheets_and_Receipts_Ordered.pdf','application/pdf');
+    downloadBytes(bytes,'Topsheets and Receipts Ordered.pdf','application/pdf');
     msg.innerHTML='<span class="tag ok">PDF built — check downloads</span>';
   }catch(err){msg.innerHTML='<span class="tag bad">Merge failed: '+esc(err.message)+'</span>';}
 });
 function sageDate(dt){return dt?String(dt.d).padStart(2,'0')+'/'+String(dt.mo).padStart(2,'0')+'/'+dt.y:'';}
 function csvField(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
-function runSageExport(onlyRecognised){
+function runSageExport(){
   const msg=document.getElementById('sageMsg');
-  if(!S.sequence.length){msg.innerHTML='<span class="tag warn">Build a sequence first</span>';return;}
+  const rows=S.aeRows||[];
+  if(!rows.length){msg.innerHTML='<span class="tag warn">Build the sequence first</span>';return;}
   const period=(document.getElementById('ccPeriod').value||'CC').trim();
-  const noAcct=[]; let out='',count=0;
-  S.sequence.forEach(s=>{
-    // "Recognised only" = every statement line the sequence builder matched to an
-    // AutoEntry row (s.matched). The red/orange "unmatched" rows are skipped.
-    if(onlyRecognised && !s.matched) return;
-    const nom=(s.acct||'').replace(/[^0-9]/g,''); if(!nom)noAcct.push(s.idx);
-    const narr=[s.payee,s.desc].filter(Boolean).join(' - ');
-    out+=['VP','1107',nom,'0',sageDate(s.date),period,narr,s.amount.toFixed(2),'T9','0','1','','MANAGER'].map(csvField).join(',')+'\n';
-    count++;
+  const noAcct=[]; let out='';
+  // One row per AutoEntry item (the things you actually have), each with its own
+  // nominal code — so the count matches your export and no code comes out blank.
+  rows.forEach((r,n)=>{
+    const nom=(r.acct||'').replace(/[^0-9]/g,''); if(!nom)noAcct.push(n+1);
+    const narr=[r.payee,r.desc].filter(Boolean).join(' - ');
+    out+=['VP','1107',nom,'0',sageDate(r.date),period,narr,(r.amount||0).toFixed(2),'T9','0','1','','MANAGER'].map(csvField).join(',')+'\n';
   });
-  if(!count){msg.innerHTML='<span class="tag warn">No '+(onlyRecognised?'recognised ':'')+'rows to export</span>';return;}
-  const suffix=onlyRecognised?'_recognised':'_all';
-  downloadBytes(new TextEncoder().encode(out),'Sage_Import_'+period.replace(/\s+/g,'_')+suffix+'.csv','text/csv');
-  document.getElementById('sageWarn').innerHTML=noAcct.length?`<div class="msg">Rows <b>${noAcct.join(', ')}</b> have no nominal code — fill in Sage or add an AccountCode column.</div>`:'<div class="msg ok">Every row has a nominal code.</div>';
-  msg.innerHTML='<span class="tag ok">'+count+' rows — '+(onlyRecognised?'recognised only':'all transactions')+'</span>';
+  downloadBytes(new TextEncoder().encode(out),'Sage Import '+period+'.csv','text/csv');
+  document.getElementById('sageWarn').innerHTML=noAcct.length?`<div class="msg">Row(s) <b>${noAcct.join(', ')}</b> have no nominal code in your AutoEntry export — add one there or fill it in Sage.</div>`:'<div class="msg ok">Every row has a nominal code.</div>';
+  msg.innerHTML='<span class="tag ok">'+rows.length+' rows exported</span>';
 }
-document.getElementById('doExportSage').addEventListener('click',()=>runSageExport(false));
-document.getElementById('doExportSageRecog').addEventListener('click',()=>runSageExport(true));
+document.getElementById('doExportSage').addEventListener('click',runSageExport);
 function downloadBytes(bytes,name,type){const blob=new Blob([bytes],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);}
 
 /* ---- Full-screen PDF preview ----
